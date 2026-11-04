@@ -1,16 +1,14 @@
+#!/usr/bin/env node
 /**
- * 构建前置清理：删除 lib/ 目录。
+ * Cross-platform `lib` cleanup for the `build` / `check` scripts.
  *
- * tsc 与 tsdown 都输出到 lib，二者都是增量写入、不会删除已经消失的源文件对应
- * 的旧产物。没有这一步，删掉一个源文件后它的 .js / .d.ts 会一直留在 lib 里被打包。
- *
- * 必须在 tsc 之前跑：tsdown 自身的 clean 选项会连 lib/types（tsc 的声明输出）
- * 一起清掉，所以 tsdown.config.ts 里统一关掉 clean，清理只由本脚本负责。
+ * The scripts used to spell this `rm -rf lib`. npm and pnpm run package
+ * scripts through `cmd.exe` on Windows, where `rm` is not a command, so the
+ * step failed (exit 1) and took the rest of the `&&` chain with it — most
+ * visibly inside `prepack`, which spawns `cmd.exe /d /s /c "pnpm run build"`
+ * on Windows on purpose. Doing the removal in Node keeps one command that
+ * resolves in every shell the repo is built from.
  */
-import { rm } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { rmSync } from 'node:fs'
 
-const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-
-await rm(resolve(projectRoot, 'lib'), { recursive: true, force: true })
+rmSync('lib', { recursive: true, force: true })
