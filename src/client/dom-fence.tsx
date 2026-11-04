@@ -889,9 +889,17 @@ export function installDomFenceRenderer(
   }
 
   /** Root that can hold fences and transcript rows. Never cached: the transcript
-   * is mounted and torn down with the session view. */
+   * is mounted and torn down with the session view.
+   *
+   * The host marks the chat column AND every group's content seat with the same
+   * attribute, so a plain querySelector can land on a nested seat and then only
+   * observe one group. Keep the outermost container: its subtree already covers
+   * the seats nested inside it. */
   function chatRoot(): Element {
-    return document.querySelector(CHAT_ROOT_SELECTOR) ?? document.body
+    for (const candidate of document.querySelectorAll(CHAT_ROOT_SELECTOR)) {
+      if (candidate.parentElement?.closest(CHAT_ROOT_SELECTOR) === null) return candidate
+    }
+    return document.body
   }
 
   function documentRowIndex(row: Element): number {
