@@ -195,6 +195,7 @@
   },
   "scripts": {
     "build": "node scripts/clean.mjs && tsc -p tsconfig.json && tsdown",
+    "build:code": "export GENUI_SKIP_ASSETS=1 && tsc -p tsconfig.json && tsdown",
     "test": "vitest run",
     "check": "node scripts/clean.mjs && tsc -p tsconfig.json && vitest run && tsdown && node scripts/check-standalone.mjs && node scripts/check-map-assets.mjs",
     "check:host-api": "node scripts/check-host-api.mjs",

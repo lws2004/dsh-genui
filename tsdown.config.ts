@@ -337,9 +337,16 @@ const libConfig: UserConfig = {
   clean: false,
 }
 
-export default [
-  libConfig,
-  clientConfig,
+/** 每个构建产物的源文件互不相交，但懒加载引擎（图/3D/地图/ECharts）打包一次
+ * 要几十秒、且它们的 minifier 输出与仓库里已提交的产物存在版本级格式差异——
+ * 改一行渲染代码就把 6 个引擎 asset 全部重刷，diff 里分不出哪些是真正的改动。
+ * GENUI_SKIP_ASSETS=1 时只重建代码产物（lib/client.js、lib/index.js、lib/types），
+ * 引擎 asset 保持原样；发布前用完整 build 重建全部。 */
+const skipAssets = process.env.GENUI_SKIP_ASSETS === '1'
+
+const codeConfigs: UserConfig[] = [libConfig, clientConfig]
+
+const assetConfigs: UserConfig[] = [
   standaloneConfig,
   assetConfig('mermaid', 'src/client/asset-mermaid.ts'),
   assetConfig('three', 'src/client/asset-three.ts'),
@@ -350,3 +357,5 @@ export default [
   // when a spec names a glyph outside the 64 inlined in icon-data.ts.
   assetConfig('icons', 'src/client/icons/asset-icons.ts'),
 ]
+
+export default skipAssets ? codeConfigs : [...codeConfigs, ...assetConfigs]

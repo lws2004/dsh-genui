@@ -70,6 +70,7 @@ import { validateCanonicalGenuiSpec } from './guard.ts'
 import { diagnoseUnknownGenuiFields } from './genui-runtime/diagnostics.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
 import { sourceFencesOfAssistant, sourceLanguageAt } from './source-fence.ts'
+import { resolveFenceByBody } from '../shared/fence-match.ts'
 import { normalizeFenceLanguage } from '../shared/fence-language.ts'
 
 /** 优先用宿主代码块内容的语义标记定位包装节点；隐藏语言或改变类名不能阻断
@@ -208,6 +209,12 @@ const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genu
  * of work per key.
  */
 const IGNORED_MUTATION_SCOPE = `${SURFACE_EXCLUDES}, [data-composer-seat], [data-composer-input]`
+/** Chat transcript root: fences only live inside the transcript. Watching this
+ * subtree instead of the whole body keeps the observer callback off sidebar and
+ * composer churn — on a streaming page those commits are frequent and unrelated.
+ * Re-resolved per use: the transcript mounts and unmounts with the session view,
+ * and the body fallback keeps discovery working while it is absent. */
+const CHAT_ROOT_SELECTOR = '[data-chat-flow]'
 /** Host attributes used by discovery, language lookup and fallback row order. */
 const FENCE_ATTRIBUTES = ['data-streaming', 'class', 'data-code-block-content', 'data-code-block-banner',
   'data-chat-anchor-key', 'data-chat-flow-key', 'data-chat-flow-kind', 'data-chat-node-key',
@@ -221,6 +228,14 @@ const SWEEP_MS = 1000
  * a once-deferred scan also runs to completion to avoid starvation. This is
  * not a hard frame-time cap. Remaining candidates wait for the next sweep. */
 const SWEEP_BUDGET_MS = 8
+/** 批量接管预算（ms）：待接管队列里堆着多条围栏，说明正处在会话切换/历史
+ * 加载这种「一次出现几十条」的场景。此时每轮仍只给 8ms 会让接管被帧率拖住
+ * （每个围栏的 React 挂载本身就要几十毫秒，一帧只够一条，而浏览器还要排队
+ * 绘制），30 条围栏实测要近 5 秒。这种情况下把预算放宽到 40ms，让一帧多推进
+ * 几条——用户此时本来就在等页面加载，短暂的主线程占用远好过几秒的空白。 */
+const BULK_SWEEP_BUDGET_MS = 40
+/** 队列超过这个长度就按批量场景处理。1-2 条是流式写的常态，不该放宽预算。 */
+const BULK_TAKEOVER_THRESHOLD = 4
 /** Rows re-checked by {@link rotationSweep}, and how many slow ticks apart
  * those passes run. The observer sees structure, text, and `data-streaming`,
  * so the belt-and-braces pass only has to cover changes it cannot see — in
@@ -432,12 +447,15 @@ function labelTextOf(block: Element): string {
  * @param raw - 未修改的围栏正文。
  * @returns 正文能按原有 GenUI 规范直接识别时返回 true。
  */
-function isGenericGenuiFence(block: Element, raw: string): boolean {
-  const row = block.closest<HTMLElement>(ASSISTANT_FLOW_ROW)
-  if (row === null || row.dataset.chatGroupPart === 'reasoning') return false
-  // domLanguageOf 已反转（#258）：banner 是已知真实语言 ⇒ 不是通用块；空标签或
-  // 本地化通用词 ⇒ null，进入内容校验。这里不再要求标题命中任何白名单。
-  if (domLanguageOf(block) !== null || !block.querySelector('[data-code-block-banner]')) return false
+/** 正文解析缓存：同一段围栏正文会在每一轮扫描里被反复解析校验（发现、序号
+ * 计算、接管各一次），一个 30 条围栏的会话每帧要做几十次 JSON.parse + 规范
+ * 校验 + 两次 JSON.stringify，切会话时接管时间因此随围栏数非线性恶化。
+ * 按正文文本缓存「这段正文是不是合规 GenUI 规范」，命中即跳过解析。
+ * 上限 500 条并整表清空：正文有界，会话长度无界。 */
+const genericFenceBodyCache = new Map<string, boolean>()
+
+/** 解析一段围栏正文是否符合 GenUI 规范。与前缀匹配无关，纯文本判定。 */
+function parseGenericFenceBody(raw: string): boolean {
   const repaired = repairFenceJson(raw)
   const candidate = repaired === null ? raw : repaired.text
   let value: unknown
@@ -456,6 +474,24 @@ function isGenericGenuiFence(block: Element, raw: string): boolean {
   }
   if (!validateCanonicalGenuiSpec(value).ok || diagnoseUnknownGenuiFields(value).length > 0) return false
   return JSON.stringify(normalizeGenuiSpec(value).value) === JSON.stringify(value)
+}
+
+function isGenericGenuiBody(raw: string): boolean {
+  const cached = genericFenceBodyCache.get(raw)
+  if (cached !== undefined) return cached
+  const result = parseGenericFenceBody(raw)
+  if (genericFenceBodyCache.size >= 500) genericFenceBodyCache.clear()
+  genericFenceBodyCache.set(raw, result)
+  return result
+}
+
+function isGenericGenuiFence(block: Element, raw: string): boolean {
+  const row = block.closest<HTMLElement>(ASSISTANT_FLOW_ROW)
+  if (row === null || row.dataset.chatGroupPart === 'reasoning') return false
+  // domLanguageOf 已反转（#258）：banner 是已知真实语言 ⇒ 不是通用块；空标签或
+  // 本地化通用词 ⇒ null，进入内容校验。这里不再要求标题命中任何白名单。
+  if (domLanguageOf(block) !== null || !block.querySelector('[data-code-block-banner]')) return false
+  return isGenericGenuiBody(raw)
 }
 
 /** 读取宿主代码块或纯文本标签中的围栏正文。 */
@@ -776,9 +812,7 @@ function createSourceLanguageResolver(ctx: Context): {
         fences = sourceFencesOfAssistant(assistantNode.data.blocks)
         parsedNodes.set(nodeKey, fences)
       }
-      const index = hostFenceIndexOf(row, block)
-      if (index < 0) return undefined
-      const fence = fences[index]
+      const fence = resolveFenceByBody(fences, rawOf(block), hostFenceIndexOf(row, block))
       const language = fence?.lang
       if (fence !== undefined && fence.openingLineComplete) {
         stableLanguages.set(block, { sessionId: activeSessionId, nodeKey, language: fence.lang })
@@ -930,7 +964,7 @@ export function installDomFenceRenderer(
   }
 
   function documentFenceIndex(block: Element): number {
-    documentFences ??= new Map(findFenceCandidates().map(candidate => [candidate, 0]))
+    documentFences ??= new Map(findFenceCandidates(chatRoot()).map(candidate => [candidate, 0]))
     if (documentOrdinalsDirty) {
       settledFenceCount = 0
       for (const candidate of documentFences.keys()) {
@@ -944,8 +978,22 @@ export function installDomFenceRenderer(
     return documentFences.get(block) || settledFenceCount + 1
   }
 
+  /** Root that can hold fences and transcript rows. Never cached: the transcript
+   * is mounted and torn down with the session view.
+   *
+   * The host marks the chat column AND every group's content seat with the same
+   * attribute, so a plain querySelector can land on a nested seat and then only
+   * observe one group. Keep the outermost container: its subtree already covers
+   * the seats nested inside it. */
+  function chatRoot(): Element {
+    for (const candidate of document.querySelectorAll(CHAT_ROOT_SELECTOR)) {
+      if (candidate.parentElement?.closest(CHAT_ROOT_SELECTOR) === null) return candidate
+    }
+    return document.body
+  }
+
   function documentRowIndex(row: Element): number {
-    documentRows ??= new Map(Array.from(document.querySelectorAll(`[data-chat-anchor-key], ${FLOW_ROW}`),
+    documentRows ??= new Map(Array.from(chatRoot().querySelectorAll(`[data-chat-anchor-key], ${FLOW_ROW}`),
       (element, index) => [element, index]))
     return documentRows.get(row) ?? 0
   }
@@ -1024,6 +1072,11 @@ export function installDomFenceRenderer(
    * waits for the sweep: inside the mutation microtask a session switch would
    * scan a whole transcript before the next paint. */
   const dirtyTargets = new Map<Node, boolean>()
+  /** 脏目标列表溢出（会话切换时宿主一次渲染整篇 transcript 就会发生）：
+   * 之后的节点进不了 dirtyTargets，只能靠 1s tick 的轮转兜底，而轮转每次只扫
+   * 24 行、每 5 tick 才跑一次——大 transcript 上围栏要停好几秒才被接管。
+   * 置位后下一轮 sweep 直接全量重扫一次，把漏掉的围栏一次补齐。 */
+  let overflowRescan = false
   /** Discovered fence candidates awaiting takeover, oldest discovery first. */
   const pendingCandidates = new Set<HTMLElement>()
   /** Queue dedupe. Dropped again when a block is evaluated, so a later change
@@ -1342,6 +1395,12 @@ export function installDomFenceRenderer(
       }
     }
     if (!structural) return
+    // 廉价预筛：整棵子树里既没有 <pre>、也没有 tag-text 形态的 <dsh-ui> 时，
+    // 它不可能含有围栏。会话切换时宿主把整篇 transcript 的每个消息行都标成
+    // dirty，其中绝大多数是纯文本与工具卡片——对它们逐个跑 findFenceCandidates
+    // 是纯浪费，也是批量接管慢的主要来源。下级节点后插入 pre 时会再次触发
+    // mutation，所以这里跳过不会漏掉围栏。
+    if (element.querySelector('pre') === null && !(element.textContent ?? '').includes('<dsh-ui>')) return
     // A changed node can carry a fence the node itself is not inside yet: a row
     // or a wrapper that arrived whole. `includeScope` makes the scan cover the
     // node and its descendants, so no shape depends on the rotation pass.
@@ -1439,7 +1498,10 @@ export function installDomFenceRenderer(
     if (element.closest(IGNORED_MUTATION_SCOPE) !== null) return
     const known = dirtyTargets.get(node)
     if (known === undefined) {
-      if (dirtyTargets.size >= DIRTY_TARGET_LIMIT) return
+      if (dirtyTargets.size >= DIRTY_TARGET_LIMIT) {
+        overflowRescan = true
+        return
+      }
       dirtyTargets.set(node, structural)
       return
     }
@@ -1567,6 +1629,8 @@ export function installDomFenceRenderer(
    * discovery queued — settled or still streaming. */
   function sweep(full = false): void {
     if (disposed) return
+    // 换根意味着此前所有发现结果都指向被丢弃的 DOM：重新绑定并全量重扫。
+    if (observeRoot()) overflowRescan = true
     if (full) invalidateDocumentTopology()
     sourceLanguages.beginSweep()
     const sourceSession = sourceSessionOf(ctx)
@@ -1617,14 +1681,16 @@ export function installDomFenceRenderer(
         const { key, context } = contextOf(anchor, block, settled, true)
         const node = mount.language === 'svg' ? renderSvgFence(raw, key) : renderResolvedFenceNode(raw, key, context)
         if (node === null) {
-          if (mount.skeleton && !settled) {
-            // Still streaming and still incomplete: keep the skeleton mounted
-            // (no React re-render needed) and wait for the next chunk.
+          if (!settled) {
+            // 流式期间正文还没解析出完整组件：保留当前已渲染的内容（骨架屏，或上一次
+            // 的完整状态），不恢复代码块。此前只在骨架屏时保留，一旦首次挂载已出组件，
+            // 之后每跨过一个组件边界都会 unmountBlock → 代码块重新可见 → 再挂回去，
+            // 观感上就是「围栏停在代码块上很久才变成界面」。
             mount.lastRaw = raw
             mount.lastSettled = settled
             continue
           }
-          // Settled, or no longer spec-shaped: restore the raw code block.
+          // Settled and unrepairable: restore the raw code block.
           unmountBlock(block)
           continue
         }
@@ -1712,7 +1778,16 @@ export function installDomFenceRenderer(
       sourceChanged = false
       requeueAwaitingSource()
     }
-    const deadline = performance.now() + SWEEP_BUDGET_MS
+    // 溢出补扫：一次全量发现不受轮转扫描的速率限制，几十毫秒即可覆盖整篇
+    // transcript，而不是等每 5 秒 24 行的兜底。与初始扫描同口径——单次子树
+    // 查询不计入 SWEEP_BUDGET_MS，那里限的是发现/接管的推进节奏。
+    if (overflowRescan) {
+      overflowRescan = false
+      const discovered = findFenceCandidates(chatRoot())
+      for (let index = discovered.length - 1; index >= 0; index -= 1) enqueueCandidate(discovered[index])
+    }
+    const budget = pendingCandidates.size > BULK_TAKEOVER_THRESHOLD ? BULK_SWEEP_BUDGET_MS : SWEEP_BUDGET_MS
+    const deadline = performance.now() + budget
     resolveDirtyTargets(deadline)
     drainCandidates(deadline)
     keepDraining()
@@ -1803,17 +1878,44 @@ export function installDomFenceRenderer(
     repairSurgery(Array.from(dirtyMounts), Array.from(dirtyDiagnostics))
     schedule()
   })
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: FENCE_ATTRIBUTES,
-    // React streams tokens as text-node updates: without characterData the
-    // observer would only fire on structural changes and miss body growth.
-    characterData: true,
-  })
+  // Watch the chat transcript instead of the whole body: sidebar, composer and
+  // toast commits can never hold a fence, yet on a streaming page they are
+  // frequent enough to run the callback for nothing. The transcript mounts and
+  // unmounts with the session view, so the root is re-resolved on the slow tick
+  // and discovery falls back to body while it is absent.
+  let observedRoot: Element | null = null
+  /** 返回是否换了监听根。会话切换时宿主整棵 transcript 会被换掉，旧根上的
+   * observer 随节点一起失效；而新内容往往在 100ms 内就渲染完了，等 1s 的慢
+   * tick 再重绑，那批 mutation 已经全部错过——围栏只能落到 rotationSweep 的
+   * 「每 5 秒扫 24 行」兜底，表现就是切会话后围栏一个一个慢慢出现。 */
+  const observeRoot = (): boolean => {
+    const root = chatRoot()
+    if (root === observedRoot) return false
+    observer.disconnect()
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: FENCE_ATTRIBUTES,
+      // React streams tokens as text-node updates: without characterData the
+      // observer would only fire on structural changes and miss body growth.
+      characterData: true,
+    })
+    observedRoot = root
+    return true
+  }
+  observeRoot()
+  // 高频只做「根是否被换掉」这一个廉价判断：切换会话的重建窗口通常不到
+  // 100ms，靠 1s 的慢 tick 才发现就太晚了。
+  const rootWatch = window.setInterval(() => {
+    if (observeRoot()) {
+      overflowRescan = true
+      schedule()
+    }
+  }, 200)
   let slowTicks = 0
   const interval = window.setInterval(() => {
+    observeRoot()
     sweep(true)
     // The rotation is the net for changes the observer cannot see, so it rides
     // the slow tick only every ROTATION_TICKS of them: it re-queries the whole
@@ -1828,7 +1930,7 @@ export function installDomFenceRenderer(
   // pass by design — the budget below bounds discovery, not a single subtree
   // query, and a session switch must not leave raw spec on screen.
   syncChatSubscription(sessionIdOf())
-  const initial = findFenceCandidates()
+  const initial = findFenceCandidates(chatRoot())
   documentFences = new Map(initial.map(candidate => [candidate, 0]))
   for (let index = initial.length - 1; index >= 0; index -= 1) enqueueCandidate(initial[index])
   sweep()
@@ -1840,6 +1942,7 @@ export function installDomFenceRenderer(
     unsubscribeChat?.()
     unsubscribeChat = undefined
     window.clearInterval(interval)
+    window.clearInterval(rootWatch)
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null
