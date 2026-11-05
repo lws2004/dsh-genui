@@ -1895,7 +1895,7 @@ export function installDomFenceRenderer(
   // frequent enough to run the callback for nothing. The transcript mounts and
   // unmounts with the session view, so the root is re-resolved on the slow tick
   // and discovery falls back to body while it is absent.
-  let observedRoot: Element | null = null
+  let observedRoot: Element | Document | null = null
   /** 返回是否换了监听根。会话切换时宿主整棵 transcript 会被换掉，旧根上的
    * observer 随节点一起失效；而新内容往往在 100ms 内就渲染完了，等 1s 的慢
    * tick 再重绑，那批 mutation 已经全部错过——围栏只能落到 rotationSweep 的
