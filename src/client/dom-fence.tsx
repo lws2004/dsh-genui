@@ -236,8 +236,6 @@ const SWEEP_BUDGET_MS = 8
 const BULK_SWEEP_BUDGET_MS = 40
 /** 队列超过这个长度就按批量场景处理。1-2 条是流式写的常态，不该放宽预算。 */
 const BULK_TAKEOVER_THRESHOLD = 4
-/** 批量模式下每条待接管围栏追加的预算（ms），上限仍是 BULK_SWEEP_BUDGET_MS。 */
-const BULK_SWEEP_BUDGET_PER_ITEM = 4
 /** Rows re-checked by {@link rotationSweep}, and how many slow ticks apart
  * those passes run. The observer sees structure, text, and `data-streaming`,
  * so the belt-and-braces pass only has to cover changes it cannot see — in
@@ -456,20 +454,6 @@ function labelTextOf(block: Element): string {
  * 上限 500 条并整表清空：正文有界，会话长度无界。 */
 const genericFenceBodyCache = new Map<string, boolean>()
 
-/** 正文的紧凑缓存键：长度 + 两个独立的 32 位 FNV-1a 变体。用哈希而不是正文
- * 本身作 key，避免 500 条缓存各自持有整段正文（大围栏 18KB 时可达 9MB）。
- * 双哈希碰撞概率约 2^-64，远低于实际围栏数量带来的风险。 */
-function fenceBodyCacheKey(raw: string): string {
-  let first = 0x811c9dc5
-  let second = 0x01000193
-  for (let index = 0; index < raw.length; index += 1) {
-    const code = raw.charCodeAt(index)
-    first = Math.imul(first ^ code, 0x01000193)
-    second = Math.imul(second ^ code, 0x85ebca6b)
-  }
-  return `${raw.length}:${(first >>> 0).toString(36)}:${(second >>> 0).toString(36)}`
-}
-
 /** 解析一段围栏正文是否符合 GenUI 规范。与前缀匹配无关，纯文本判定。 */
 function parseGenericFenceBody(raw: string): boolean {
   const repaired = repairFenceJson(raw)
@@ -493,12 +477,11 @@ function parseGenericFenceBody(raw: string): boolean {
 }
 
 function isGenericGenuiBody(raw: string): boolean {
-  const key = fenceBodyCacheKey(raw)
-  const cached = genericFenceBodyCache.get(key)
+  const cached = genericFenceBodyCache.get(raw)
   if (cached !== undefined) return cached
   const result = parseGenericFenceBody(raw)
   if (genericFenceBodyCache.size >= 500) genericFenceBodyCache.clear()
-  genericFenceBodyCache.set(key, result)
+  genericFenceBodyCache.set(raw, result)
   return result
 }
 
@@ -1831,10 +1814,7 @@ export function installDomFenceRenderer(
       }
       if (overflowRowCursor <= 0) overflowRows = null
     }
-    const pending = pendingCandidates.size
-    const budget = pending > BULK_TAKEOVER_THRESHOLD
-      ? Math.min(BULK_SWEEP_BUDGET_MS, SWEEP_BUDGET_MS + pending * BULK_SWEEP_BUDGET_PER_ITEM)
-      : SWEEP_BUDGET_MS
+    const budget = pendingCandidates.size > BULK_TAKEOVER_THRESHOLD ? BULK_SWEEP_BUDGET_MS : SWEEP_BUDGET_MS
     const deadline = performance.now() + budget
     resolveDirtyTargets(deadline)
     drainCandidates(deadline)
