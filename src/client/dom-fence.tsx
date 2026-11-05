@@ -978,18 +978,30 @@ export function installDomFenceRenderer(
     return documentFences.get(block) || settledFenceCount + 1
   }
 
-  /** Root that can hold fences and transcript rows. Never cached: the transcript
-   * is mounted and torn down with the session view.
+  /** Cached transcript root. Discovery passes must not re-query the document:
+   * the root only changes when the session view is torn down, which shows up as
+   * a disconnected cached node. */
+  let cachedChatRoot: Element | Document | null = null
+
+  /** Root that can hold fences and transcript rows. Re-resolved only when the
+   * cached root is gone: the transcript is mounted and torn down with the
+   * session view. Falls back to `document` (the upstream default scan scope)
+   * while the transcript is absent.
    *
    * The host marks the chat column AND every group's content seat with the same
    * attribute, so a plain querySelector can land on a nested seat and then only
    * observe one group. Keep the outermost container: its subtree already covers
    * the seats nested inside it. */
-  function chatRoot(): Element {
+  function chatRoot(): Element | Document {
+    if (cachedChatRoot !== null && cachedChatRoot.isConnected) return cachedChatRoot
     for (const candidate of document.querySelectorAll(CHAT_ROOT_SELECTOR)) {
-      if (candidate.parentElement?.closest(CHAT_ROOT_SELECTOR) === null) return candidate
+      if (candidate.parentElement?.closest(CHAT_ROOT_SELECTOR) === null) {
+        cachedChatRoot = candidate
+        return candidate
+      }
     }
-    return document.body
+    cachedChatRoot = document
+    return cachedChatRoot
   }
 
   function documentRowIndex(row: Element): number {
