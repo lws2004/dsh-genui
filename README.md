@@ -398,6 +398,12 @@ This version requires DSH `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Older 
 
 ---
 
+## 📦 Bundled Skill
+
+This plugin ships its own bundled skill: [SKILL.md](./SKILL.md) at the package root. It is registered with `ctx.skills.registerProvider(...)` inside a `ctx.inject(['skills'], ...)` dependency fiber (`source: bundled`, rank 600, `resourceBase` pointing at the package directory). No copy or symlink is placed under `~/.agents/skills/` or `~/.dsh/skills/`; load it with `skill("genui")` once the plugin is installed. Component syntax and field rules live in that file, so the instructions follow the plugin version.
+
+---
+
 ## 🗺️ Roadmap Evaluation
 
 | Exploration Area | Decision | Rationale |
