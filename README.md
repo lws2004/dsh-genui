@@ -404,6 +404,25 @@ This plugin ships its own bundled skill: [SKILL.md](./SKILL.md) at the package r
 
 ---
 
+## Model Experience
+
+`dsh-genui` is designed so the model's own output remains the rendering instruction. The model emits a `dsh-ui` fence (or calls the `render_ui` tool); the host streams it through untouched and the client renderer normalizes the JSON against a whitelist before mounting React components. What the model sees is unchanged: ordinary assistant text plus a fenced block. Each fence costs roughly 200–800 tokens (see Roadmap), and the component/field contract the model follows is shipped in the bundled `SKILL.md`, so the model never has to discover syntax at runtime.
+
+Interactions that can be resolved locally — sorting a table, dragging a plot slider, answering a quiz, toggling a tab — update in sub-millisecond client time and never re-enter the model's context. Only explicit action buttons dispatch a structured payload back to the host for the next reasoning step, keeping the loop tight and cheap.
+
+## KV Cache effect
+
+The plugin is prefix-neutral for the model: it injects no per-turn text into the prompt. Fences are part of the assistant's normal completion, and the only model-facing instructions are the static bundled skill text, which is stable across turns and therefore stays inside the cacheable prefix. Rendering, normalization, lazy asset loading, and interaction state all happen client-side; durable UI state is held in the client and is not appended to the next request. Enabling GenUI therefore does not perturb the KV cache between turns, and there is no growing UI transcript to re-pay for.
+
+## Known Limitations
+
+- **Host version**: requires DSH `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Older hosts lack the React slot/context capabilities and can render a blank chat screen.
+- **Heavy engines are lazy-loaded**: ECharts, Mermaid, Three, and MapLibre load on first use through plugin-provided static routes. First render needs those bundles to be reachable; offline use relies on browser cache or the exported standalone `.html`.
+- **Client-only rendering**: text-only or headless channels that do not run the client renderer show the raw `dsh-ui` fence instead of live components.
+- **Interaction state resets across sessions**: by design, replaying a session re-derives components from their fences rather than restoring live widget state.
+- **Optional integrations need host support**: maps need MapLibre assets; Side Chat requires a host/provider exposing `genuiSidechat`; BetterSidebar requires a release exposing `registerSidechatSurfaceAdapter` (0.28.0 does not).
+
+---
 ## 🗺️ Roadmap Evaluation
 
 | Exploration Area | Decision | Rationale |
