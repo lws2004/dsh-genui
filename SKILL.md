@@ -1,6 +1,7 @@
 ---
 name: genui
-description: "Render structured interactive UI inline through the dsh-ui fence. Use for key points, emphasis, comparisons, flows, steps, status, data, demos, and interactions whenever structured presentation would be clearer than prose. Preserve conversation language for all user-visible text."
+description: >-
+  Render structured interactive UI inline through the dsh-ui fence. Use for key points, emphasis, comparisons, flows, steps, status, data, demos, and interactions whenever structured presentation would be clearer than prose. Preserve conversation language for all user-visible text. Don't use for prose that reads fine on its own; don't use for data charts or architecture diagrams — use viz-render or mds-diagram-design instead.
 ---
 
 # GenUI — 生成式 UI 输出规范
