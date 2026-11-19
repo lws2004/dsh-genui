@@ -23,13 +23,17 @@ For authored responses, prefer a small set of 3–8 visually consistent cards, s
 - Media uses the same HTTP(S) or relative URL policy as `image`. `file:`, `data:`, `javascript:` and protocol-relative URLs are not accepted. Captions use the existing safe inline renderer; caption links are not nested inside the thumbnail's button.
 - Empty collections display an empty state. Failed images display an error placeholder rather than starting a model request.
 
+## Single images
+
+A lone `image` uses the same native viewer. Clicking the picture opens the dialog with its close button focused; Escape or Close returns focus to the picture, and the caption stays readable inside the viewer. The preview keeps the card's framed, uncropped layout and the viewer shows the full image at its natural aspect ratio. Failed images keep the existing error placeholder and stay inert.
+
 ## Streaming and state
 
 Append carousel children at the end to preserve existing structural paths and field identity; reordering form cards is not a supported identity-preserving operation. Do not reuse field IDs between cards. Scroll position is local to the mounted carousel, not persisted in an exported artifact.
 
 The image viewer identifies an entry by its source and occurrence number. Appending or reordering distinct sources preserves the current image. Removing it closes the viewer; if the opener was removed, focus returns to the group. Reordering indistinguishable duplicate URLs cannot express an identity beyond their occurrence order. Modal selection is local UI state, not a durable saved answer.
 
-Standalone export retains galleries and reports image URLs as external media. It does not embed image bytes or make relative/remote URLs available offline. Nested model actions keep the normal standalone limitations. No OpenUI component source is copied; this is an independent implementation against the GenUI contract.
+Standalone export retains galleries and embeds the same-origin images it can read as `data:` URLs, so a file opened from `file://` shows them without the host process or its credentials. Another origin or a rejected request keeps its URL and stays external media — reported through the export notice. Nested model actions keep the normal standalone limitations. No OpenUI component source is copied; this is an independent implementation against the GenUI contract.
 
 ## Verification
 

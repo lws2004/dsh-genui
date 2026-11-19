@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 ### 1. 环境准备
 
 安装前请确认满足以下条件：
-- **DSH 版本**：`^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`。安装包浏览器验收覆盖 `0.2.0-rc.1`、`0.2.1-rc.3` 与 npm 精确安装的 `0.2.1-rc.5`（当前 `latest` / `next`）和 `0.2.2-alpha.2`；保留 `0.2.1-rc.4` 单独执行公开接口、完整单元测试与构建检查。alpha 宿主要求 **Node.js >=24.9.0**，图片集合、计算字段和地图使用官方本地回放验收；第三方侧栏接入在 rc.3 上验收。
+- **DSH 版本**：`^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`。安装包浏览器验收覆盖 `0.2.0-rc.1`、`0.2.1-rc.3` 与 npm 精确安装的 `0.2.2-rc.1`（当前 `latest` / `next`）和 `0.2.2-alpha.2`；`0.2.1-rc.4` 与 `0.2.1-rc.5` 继续单独执行公开接口、完整单元测试与构建检查。当前 RC 与 alpha 宿主要求 **Node.js >=24.9.0**，图片集合、计算字段和地图使用官方本地回放验收；第三方侧栏接入在 rc.3 上验收。
 - **pnpm 处于 PATH 中**：`dsh plugin` 底层依赖 pnpm。如尚未安装，请执行 `corepack enable` 或 `npm i -g pnpm`，之后**重新打开终端**，确认 `pnpm -v` 可正常输出。
 
 ### 2. 一键安装与激活
@@ -153,7 +153,7 @@ dsh-genui 核心能力矩阵
 - **数学函数绘图 (`plot`)**：
   - 支持多曲线绘制（line / area / scatter），公式支持三角函数、对数、幂运算等；
   - **动态参数滑块**：拖动滑块前端毫秒级重绘，锁定 Y 轴，支持自动动画循环演示。
-- **Mermaid & 3D 场景**：支持流程图、序列图及轻量 3D 模型渲染，引擎按需异步加载。
+- **Mermaid & 3D 场景**：支持流程图、序列图及轻量 3D 模型渲染，引擎按需异步加载。渲染完成的 Mermaid 图可点击打开原生对话框查看大图：滚轮缩放、拖拽平移、工具栏放大/缩小/重置，Esc、关闭按钮或点遮罩退出并把焦点放回图表。
 - **原生多媒体**：支持浏览器可直达的音频（`audio`）与视频（`video`）嵌入播放，包含封面图、比例自适应及播放控制。
 - **数学公式集成**：基于 KaTeX，支持行内公式 `$...$`、块级公式 `$$...$$`，支持矩阵与多行推导。
 
@@ -262,7 +262,7 @@ sequenceDiagram
 
 ### 成果导出能力
 对渲染完成的 GenUI 内容，支持点击菜单导出为：
-- **独立 `.html`**：内嵌渲染核心、样式、KaTeX 字体及所用图表引擎，脱离 DSH 也能在任意浏览器中离线打开与交互。
+- **独立 `.html`**：内嵌渲染核心、样式、KaTeX 字体、所用图表引擎，以及导出时能读到的同源图片，脱离 DSH 也能在任意浏览器中离线打开与交互。
 - **`.genui.json`**：完整保存规范化后的 Spec 结构与持久化交互状态。
 
 ---
@@ -287,14 +287,15 @@ pnpm run check           # 类型检查 + 单元测试 + 构建
 pnpm run test            # 运行 Vitest 测试套件
 pnpm run check:host-api dsh-v0.2.1-rc.3  # 检查保留的 rc.3 宿主公开接口
 pnpm run check:host-api dsh-v0.2.1-rc.4  # 检查此前的 rc.4 公开接口
-pnpm run check:host-api dsh-v0.2.1-rc.5  # 检查当前 npm latest / next 接口、完整测试与构建
+pnpm run check:host-api dsh-v0.2.1-rc.5  # 检查此前的 rc.5 接口、完整测试与构建
+pnpm run check:host-api dsh-v0.2.2-rc.1  # 检查当前 npm latest / next 接口、完整测试与构建
 pnpm run check:host-api dsh-v0.2.2-alpha.2  # 检查受支持的 npm alpha 接口、完整测试与构建
 node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
 ```
 
 ### 端到端 E2E 验证
 
-CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2` 从 npm 安装精确版本，在独立 web profile 中验收插件安装包。此通道使用 `DSH_HOST_LAYOUT=registry`、`DSH_HOST_VERSION=0.2.2-alpha.2` 和脚本返回的 `DSH_ROOT`、`DSH_BIN`；源码宿主通道继续固定到对应官方标签。同一 registry 通道也安装 `0.2.1-rc.5`，对应设置 `DSH_HOST_VERSION=0.2.1-rc.5`。当前 RC 与 alpha 的接口、图片集合与计算字段、Linux 地图检查全部通过后才发布 npm。动作使用官方本地回放；Android 真机及原 Windows Desktop 环境仍需单独验收。
+CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2` 从 npm 安装精确版本，在独立 web profile 中验收插件安装包。此通道使用 `DSH_HOST_LAYOUT=registry`、`DSH_HOST_VERSION=0.2.2-alpha.2` 和脚本返回的 `DSH_ROOT`、`DSH_BIN`；源码宿主通道继续固定到对应官方标签。同一 registry 通道也安装 `0.2.2-rc.1`，对应设置 `DSH_HOST_VERSION=0.2.2-rc.1`。npm 宿主验收将 Cordis 基础框架依赖固定到对应宿主发布清单所列版本，避免后续依赖解析改变测试宿主。当前 RC 与 alpha 的接口、图片集合与计算字段、Linux 地图检查全部通过后才发布 npm。动作使用官方本地回放；Android 真机及原 Windows Desktop 环境仍需单独验收。
 
 - **视觉回归 E2E（无需模型 API Key）**：
   ```sh
@@ -317,7 +318,24 @@ CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`
   config:
     renderUiTool: false   # 关闭额外注入的 render_ui 工具调用，仅保留正文 dsh-ui 围栏与 panel
     fenceFeedback: false  # 关闭模型生成失败时的同回合自动 steer 纠错
+    fenceSection: full    # 可选 full（默认）、minimal 或 false
 ```
+
+`fenceSection` 同时控制围栏提示的详略与使用倾向：
+
+| 档位 | 行为 |
+| --- | --- |
+| `full`（默认） | 提供语法和基本规则，主动用组件呈现共同维度的比较、数值趋势、流程依赖和用户交互，无需用户每次提醒。 |
+| `minimal` | 只保留围栏示例和加载 GenUI Skill 的要求，使用倾向由用户指令决定。 |
+| `false` | 不注册 `genui:fence` 提示段。 |
+
+规则强度按 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) 区分：合法 JSON、当前字段规范及用户明确的语言与呈现要求属于 MUST；`full` 对比较、趋势、流程依赖和交互使用合适 UI 属于 SHOULD，可因场景合理取舍；card 容器属于 MAY。`full` 不按要点条数或回答长度触发，没有组件数量配额；普通解释和短清单默认正文。档位调整提示倾向，不保证固定触发率。
+
+正文内联内容用围栏，工具结果区域的独立 UI 用 `render_ui`，持续更新的会话面板用 `panel:true`。围栏和工具都支持交互状态保存，按呈现位置选择。`card` 是可选容器，不默认套卡片不等于不用 GenUI。
+
+Skill 是否可用按当前 Agent 的工具视图判断，支持预设提供的工具，不要求存在全局 `skill`。可见工具必须符合 Skill 加载接口，且 `genui` 允许模型调用。技能已包含当前字段时，不再注入组件参考；旧技能只在 `genui:reference` 中补充缺失或变化的字段说明，追加用户偏好不会触发整份参考。用户技能文件保持原样，当前系统字段优先于加载到的旧字段。
+
+没有兼容的加载工具或允许模型调用的 GenUI 技能时，围栏指导开启或 `render_ui` 可用时，提供精简字段速查。`fenceSection: false` 关闭围栏指导；围栏指导和 `render_ui` 都关闭时，不注入参考。这些设置不禁用围栏渲染或 Panel。dsh-go 的 `genui:native` 提示段及工具定义独立计算提示与 Token 消耗。实际生成 UI 时加载完整技能仍会消耗上下文；此次移除的是无条件重复注入，并非让技能加载免费。
 
 ---
 

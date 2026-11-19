@@ -274,7 +274,6 @@ describe('fenceFailures: only fences that would stay a code block', () => {
 
   it.each([
     ['complete JSON', STAT_GROUP],
-    ['trailing tool syntax', `${STAT_GROUP}\n<|tool_calls_begin|>\n{"name":"render_ui",`],
     ['tier-1 repair', REPAIRABLE],
     ['settled tier-2 completion', TIER2_ONLY],
   ])('does not reject a renderable unclosed fence: %s (#288)', (_name, body) => {
@@ -421,14 +420,16 @@ describe('the steered correction message', () => {
 })
 
 describe('installFenceFeedback wiring', () => {
-  it('does not request a duplicate card for an unclosed renderable reply (#288)', () => {
+  it('requests one boundary correction for unconsumed content, without retry loops (#418)', () => {
     const h = harness()
     h.emitSession(userEvent())
     h.emitSession(assistantEvent(`\`\`\`dsh-ui\n${STAT_GROUP}\n<|tool_calls_begin|>\n{"name":"render_ui",`))
     const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
     h.boundary({ agent, turn: 4, signal: new AbortController().signal })
     h.boundary({ agent, turn: 4, signal: new AbortController().signal })
-    expect(h.steer).not.toHaveBeenCalled()
+    expect(h.steer).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('resend_corrected_fence_and_preserved_text')
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('preserve_unconsumed_content=true')
   })
 
   it('keeps stream recovery active and disables same-turn steering when configured off', () => {
@@ -459,6 +460,17 @@ describe('installFenceFeedback wiring', () => {
 
   const toolCallEvent = (name: string, callId?: string): unknown =>
     ({ type: 'tool/call', seq: 4, time: 2, data: callId === undefined ? { name } : { name, callId } }) as unknown as SessionEvent
+  it('asks for a new line when a validated fence starts after prose (#432)', () => {
+    const h = harness()
+    h.emitSession(userEvent())
+    h.emitSession(toolCallEvent('validate_dsh_ui'))
+    h.emitSession(assistantEvent('比较如下。```dsh-ui\n' + STAT_GROUP + '\n```'))
+    const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
+    h.boundary({ agent, turn: 4, signal: new AbortController().signal })
+    expect(h.steer).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('required=fence_opening_on_own_line')
+  })
+
   interface ToolResultOptions {
     internal?: boolean
     blockError?: boolean
@@ -858,19 +870,29 @@ describe('GenUI reasoning-only stream recovery', () => {
     { type: 'finish', reason: { kind: 'stop' } },
   ]
 
-  it('rewrites a validated top-level GenUI reasoning-only stop as EMPTY_RESPONSE', async () => {
+  const blankBody: StreamChunk[] = [
+    { type: 'block-start', index: 0, blockType: 'text' },
+    { type: 'text-delta', index: 0, text: ' \n ' },
+    { type: 'block-end', index: 0, block: { type: 'text', text: ' \n ' } },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]
+
+  it.each([
+    { name: 'reasoning only', stream: reasoningOnly },
+    { name: 'blank text only', stream: blankBody },
+  ])('rewrites a validated top-level GenUI stop with $name as EMPTY_RESPONSE', async ({ stream }) => {
     const h = streamHarness()
     h.emitSession(userEvent() as SessionEvent)
     h.emitSession({ type: 'tool/call', seq: 3, time: 1, data: { name: 'validate_dsh_ui', callId: 'validate-1' } } as unknown as SessionEvent)
-    const chunks = await collectChunks(h.stream(agentRequest(), reasoningOnly))
+    const chunks = await collectChunks(h.stream(agentRequest(), stream))
 
-    expect(chunks.slice(0, -1)).toEqual(reasoningOnly.slice(0, -1))
+    expect(chunks.slice(0, -1)).toEqual(stream.slice(0, -1))
     expect(chunks.at(-1)).toEqual({
       type: 'finish',
       reason: {
         kind: 'error',
         failure: {
-          message: 'GenUI turn completed with reasoning only and no deliverable response',
+          message: 'GenUI turn completed without a deliverable response',
           code: 'EMPTY_RESPONSE',
         },
       },

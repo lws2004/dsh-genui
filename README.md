@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 ### 1. Prerequisites
 
 Ensure your environment meets the following requirements:
-- **DSH Version**: `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Packed browser acceptance covers `0.2.0-rc.1`, `0.2.1-rc.3` and the exact npm hosts `0.2.1-rc.5` (current `latest` / `next`) and `0.2.2-alpha.2`; the earlier `0.2.1-rc.4` retains separate public-API, full-unit-suite and build checks. The alpha host requires **Node.js >=24.9.0**. Its gallery, computed-field and Map acceptance uses official local replay; third-party sidebar integration is checked on rc.3.
+- **DSH Version**: `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Packed browser acceptance covers `0.2.0-rc.1`, `0.2.1-rc.3` and the exact npm hosts `0.2.2-rc.1` (current `latest` / `next`) and `0.2.2-alpha.2`; `0.2.1-rc.4` and `0.2.1-rc.5` retain separate public-API, full-unit-suite and build checks. The current RC and alpha hosts require **Node.js >=24.9.0**. Its gallery, computed-field and Map acceptance uses official local replay; third-party sidebar integration is checked on rc.3.
 - **pnpm on PATH**: The `dsh plugin` CLI requires pnpm. If missing: run `corepack enable` or `npm i -g pnpm`, then **open a new terminal** and confirm `pnpm -v` prints a version number.
 
 ### 2. Install & Activate
@@ -153,9 +153,9 @@ dsh-genui Capabilities
 - **Mathematical Function Plots (`plot`)**:
   - Multi-series plotting with expressions (trig, log, exp, power);
   - **Live Parameter Sliders**: Drag sliders to redraw curves instantly at 60 FPS; supports auto-animation loops.
-- **Mermaid & 3D Visuals**: Flowcharts, sequence diagrams, and lightweight 3D models with on-demand asset loading.
+- **Mermaid & 3D Visuals**: Flowcharts, sequence diagrams, and lightweight 3D models with on-demand asset loading. A rendered Mermaid diagram opens a zoomable SVG dialog on click: wheel zoom, drag pan, zoom/reset controls, Esc, Close or backdrop to close with focus restored.
 - **Native Galleries**: `carousel` composes existing cards and forms in a responsive, keyboard-navigable horizontal track; `image-group` opens images in a local lightbox with focus restoration. Navigation does not invoke model actions. [Examples and verification](docs/gallery.md).
-- **Native Media**: Inline playback for accessible audio and video URLs, with poster images, aspect ratios, and controls.
+- **Native Media**: Inline playback for accessible audio and video URLs, with poster images, aspect ratios, and controls; a single `image` opens a zoom dialog on click and returns focus to the picture when it closes.
 - **KaTeX Math Rendering**: Inline math (`$...$`) and display blocks (`$$...$$`), supporting matrices and multi-line equations.
 
 ### 3. ⚡ Local-First Responsiveness
@@ -263,7 +263,7 @@ sequenceDiagram
 
 ### Artifact Exporting
 Completed GenUI blocks can be exported on demand:
-- **Standalone `.html`**: Inlines the lightweight renderer, CSS styles, KaTeX fonts, and required chart engines so the interactive UI can be viewed and tested offline in any browser.
+- **Standalone `.html`**: Inlines the lightweight renderer, CSS styles, KaTeX fonts, required chart engines, and the same-origin images it can read so the interactive UI can be viewed and tested offline in any browser.
 - **`.genui.json`**: Retains the normalized specification and durable interaction states for storage and portability.
 
 ---
@@ -288,14 +288,15 @@ pnpm run check           # Type checks + full unit test suite + build
 pnpm run test            # Run Vitest unit tests
 pnpm run check:host-api dsh-v0.2.1-rc.3  # Check the retained rc.3 host API
 pnpm run check:host-api dsh-v0.2.1-rc.4  # Check the earlier rc.4 API
-pnpm run check:host-api dsh-v0.2.1-rc.5  # Check the current npm latest / next API, full suite and build
+pnpm run check:host-api dsh-v0.2.1-rc.5  # Check the earlier rc.5 API, full suite and build
+pnpm run check:host-api dsh-v0.2.2-rc.1  # Check the current npm latest / next API, full suite and build
 pnpm run check:host-api dsh-v0.2.2-alpha.2  # Check the supported npm alpha API, full suite and build
 node scripts/verify-pack.mjs --keep  # Verify and inspect npm tarball
 ```
 
 ### End-to-End (E2E) Testing
 
-CI and the release workflow install `0.2.2-alpha.2` from npm with `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`, then verify the packed plugin in a fresh web profile. This lane uses `DSH_HOST_LAYOUT=registry` and `DSH_HOST_VERSION=0.2.2-alpha.2` with the returned `DSH_ROOT` and `DSH_BIN`; the source-host lanes remain pinned to their official tags. The same registry-host lane also installs `0.2.1-rc.5`, with `DSH_HOST_VERSION=0.2.1-rc.5`. Both current RC and alpha API, gallery/computed and Linux Map checks must pass before npm publication. Actions use official local replay; Android device and original Windows Desktop acceptance remain separate.
+CI and the release workflow install `0.2.2-alpha.2` from npm with `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`, then verify the packed plugin in a fresh web profile. This lane uses `DSH_HOST_LAYOUT=registry` and `DSH_HOST_VERSION=0.2.2-alpha.2` with the returned `DSH_ROOT` and `DSH_BIN`; the source-host lanes remain pinned to their official tags. The same registry-host lane also installs `0.2.2-rc.1`, with `DSH_HOST_VERSION=0.2.2-rc.1`. Registry-host checks pin Cordis framework dependencies to the versions recorded in each host’s published manifest so later dependency resolution cannot change the host graph. Both current RC and alpha API, gallery/computed and Linux Map checks must pass before npm publication. Actions use official local replay; Android device and original Windows Desktop acceptance remain separate.
 
 - **Visual E2E Smoke (No Model API Key Required)**:
   ```sh
@@ -318,7 +319,24 @@ To customize plugin behaviors, add configurations under `cordis.patch.yml` in yo
   config:
     renderUiTool: false   # Disable registering the render_ui tool card (fences and panel remain active)
     fenceFeedback: false  # Disable automatic same-turn steer correction on malformed fences
+    fenceSection: full    # full (default), minimal, or false
 ```
+
+`fenceSection` controls both fence guidance detail and usage preference:
+
+| Mode | Behavior |
+| --- | --- |
+| `full` (default) | Provides syntax and essential rules, and proactively uses components for comparisons along shared dimensions, numerical trends, process dependencies, and user interaction, without waiting for a reminder. |
+| `minimal` | Keeps only the fence example and the requirement to load the GenUI skill; user instructions determine usage preference. |
+| `false` | Omits the `genui:fence` section. |
+
+Requirement words follow [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119): valid JSON, current fields, and explicit user language and presentation requirements are MUST rules. In `full`, using appropriate UI for comparisons, trends, dependencies, and interaction is SHOULD guidance; card wrappers are MAY. `full` sets no list-length trigger or component quota. Ordinary explanations and short lists default to prose. Modes guide behavior rather than guaranteeing a fixed usage rate.
+
+Use fences for inline reply content, `render_ui` for a standalone UI in the tool result, and `panel:true` for the session panel that updates in place. Both fences and tools preserve interaction state; choose by placement. `card` is an optional container: avoiding unnecessary card wrappers does not mean avoiding GenUI.
+
+Skill availability is resolved in the current agent's tool view, including preset-owned loaders; a global `skill` registration is not required. The visible tool must expose the Skill loader contract, and `genui` must allow model invocation. When the skill already includes current fields, no component reference is injected. An older skill receives only missing or changed field descriptions in `genui:reference`; appended user preferences do not trigger a full reference. User skill files remain untouched, and current system fields take precedence over loaded older fields.
+
+If a compatible loader or model-invocable GenUI skill is unavailable, a compact field reference is supplied for fence guidance or an available `render_ui` tool. `fenceSection: false` omits fence guidance; disabling both fence guidance and `render_ui` also omits the reference. Neither setting disables fence rendering or panels. The dsh-go `genui:native` section and tool definitions have independent guidance and token costs. Loading the full skill for an actual UI response still consumes context; this change removes the unconditional duplicate catalog rather than making that load free.
 
 ### Embedding into Other Applications
 
