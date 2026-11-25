@@ -1,6 +1,11 @@
 ---
 name: genui
-description: "Render structured interactive UI inline through the dsh-ui fence. Use for key points, emphasis, comparisons, flows, steps, status, data, demos, and interactions whenever structured presentation would be clearer than prose. Preserve conversation language for all user-visible text. Don't use for prose that reads fine on its own; don't use for data charts or architecture diagrams — use viz-render or mds-diagram-design instead."
+description: >-
+  Render structured interactive UI inline through the dsh-ui fence. Use for key points, emphasis,
+  comparisons, flows, steps, status, data, demos, and interactions whenever structured presentation
+  would be clearer than prose. Preserve conversation language for all user-visible text. Don't use
+  for prose that reads fine on its own; don't use for data charts or architecture diagrams — use
+  viz-render or mds-diagram-design instead.
 ---
 
 # GenUI — 生成式 UI 输出规范
@@ -48,6 +53,7 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 高级：`svg` `mermaid` `diagram` `scene3d` `quiz` `entity-card`
 
 ### 布局
+
 - text: `{"type":"text","size":"display|h1|h2|h3|body|muted|caption","content":"...","align":"left|center|right"?}`（`tone:"danger|success|warning|info|muted"` 给整行文字上语义色，不用套 badge；`mono:true` 走等宽字体，用于十六进制/二进制/标识符，不带行内代码底色）（`size:"display"` 比标题大一档，作引言/开篇点题句，**一条回答 ≤1**；`center:true` 是旧写法，等价 `align:"center"`，新写一律用 `align`）
 - row / col: `{"type":"row"|"col","items":[...],"wrap":true?,"spacer":true?,"gap":n?}`；`row.justify:"center"` 主轴居中（图标+标题那种图头）；`col.width:n`（1-100）给这一列占行宽的百分比，不写就按内容宽
 - grid: `{"type":"grid","cols":n,"items":[...]}`；`columns` 可作为 `cols` 的别名，校验会提示使用规范字段。
@@ -59,6 +65,7 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 - divider: `{"type":"divider"}`；**带章节名** `{"type":"divider","label":"<user-language 章节名>"}`（线 + 小标签居中，作章节切换：报告从摘要切入数据、图表册开新章时用一段；卡片/列表内部、连续同主题内容之间**不要用**，一条回答 ≤3 个）; spacer: `{"type":"spacer"}`
 
 ### 展示
+
 - stat: `{"type":"stat","label":"...","value":"...","delta":"+12.4%|-3%"}`（`-` 开头自动红、`+` 绿）；可选 `"spark":[3,5,4,8,6]` 画一条微趋势线（2–60 个有限数值）；`"size":"hero"` 渲染超大数字（一条回答最多用一次，作为视觉锚点）
 - badge: `{"type":"badge","label":"...","tone":"success|warn|danger|accent","icon":"emoji?"}`
 - progress: `{"type":"progress","label":"...","value":0-100,"valueLabel":"70%"}`；`"variant":"ring"` 画环形进度，`"target":70` 在轨道上标出目标刻度
@@ -69,6 +76,7 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 
 **本机截图怎么进回答**：`image` / `image-group` / `compare` 的 `src` 只接受浏览器能拿到的地址。本机文件走宿主已有的鉴权文件路由，直接写 URL，不用搬文件、不用配目录：
 `/api/file?path=<绝对路径，percent-encoded>`（例：`/api/file?path=%2FUsers%2Fme%2Fproj%2F.a.png`）。宿主用同一个路由渲染 Markdown 里的本地图片，支持 png/jpeg/webp/gif/svg，带大小上限与沙箱策略。典型用法：同一处改动前后各截一张，用 `compare` 摆出来，而不是用文字描述"改了什么"。
+
 - audio: `{"type":"audio","src":"/mmx-files/result.mp3","alt":"<user-language description>","loop":true?}` — 原生控制条；用户主动播放，不自动播放；仅 http(s) 或同源相对地址
 - video: `{"type":"video","src":"/mmx-files/result.mp4","alt":"<user-language description>","poster":"/mmx-files/poster.jpg"?,"loop":true?,"muted":true?,"aspectRatio":"16:9|4:3|1:1|9:16"?}` — 原生播放/音量/全屏控制；不自动播放
 - list: `{"type":"list","items":["..."] 或 [{"title":"...","desc":"..."}] 或嵌套节点(如 {"type":"badge","label":"TS"})}` — 行内可嵌节点（计入节点预算）；记录中的 `label`/`name` 归一化为 `title`，`description`/`content`/`text`/`body`/`detail` 归一化为 `desc`；只有正文时将正文用作标题，未知字段会收到警告
@@ -94,7 +102,9 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown ArrowUp ArrowRight ArrowLeft ArrowCurvedRight Function Functions Operator Atom Nodes Connect Share Branch Grid GridAlt Stack Cube Storage Chart Trending Pulse Speed Timer Clock TableFilled Code SquareCode Terminal File FileCode Folder Link Paperclip Lightbulb Book BookOpen GraduationCap Flask Lab Brain Robot Sparkles ShieldCheck Lock Globe WebsiteNetwork Search MagnifyingGlassSearch PluginPuzzle Settings Bolt Compass
 
 其余 **685 个按需载入**（首次用到时拉取约 1 MB，此后本页全部可用）。完整名单在本 SKILL 同目录的 `ICON-NAMES.md`——需要猜名字时读它或 grep 它，不要在对话里穷举。
+
 ### 图表
+
 - chart: `{"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[{"label":"...","data":[...]}]?,"horizontal":true?}` — bars 默认；line 趋势；donut 占比；**series：bars 是分组柱，line 是多序列折线；每个 `series[].data` 使用 `[{"label":"Q1","value":30},{"label":"Q2","value":45}]` 这样的对象数组，不是 `[30,45]` 这样的纯数字数组**；**`horizontal:true` 画横向柱**（排行/长标签首选）；**`stacked:true` 把 series 堆叠**（构成/占比随时间）；堆叠段够高时数值直接印在段内，鼠标悬停任意柱/段/点/扇区都会弹出即时 tooltip（堆叠显示该段数值 + 合计）。v3 渲染：宽度自适应、Y 轴 1/2/5 刻度、单序列负值在零线以下真实绘制、line 带面积渐变与抽稀 X 标签、donut 图例显示数值与百分比。**≤8 个点的快速对比用 chart；多序列、需要缩放/交互或数据量大时用 echart**
 - plot: `{"type":"plot","series":[{"expr":"a*sin(b*x)","label":"...","color":"#hex?","params":[{"name":"a","value":1,"min":0,"max":5,"animateTo":3,"durationMs":4000,"loop":true},{"name":"b","value":1,"min":0.5,"max":5}]}],"xMin":-6.28,"xMax":6.28,"title":"..."}` — SVG 函数图；**series 可带 `"kind":"line|area|scatter"`**（缺省 line；area 填色到基线；scatter 散点）；**params 渲染成实时滑块**（拖动即时重绘，**y 轴锁定**=只变曲线不变数轴）；**animateTo 参数会显示播放按钮**（自动动画演示）；SVG 可拖拽平移、滚轮缩放；表达式支持 sin/cos/tan/asin/acos/atan/sqrt/cbrt/exp/log/ln/abs/floor/ceil/round/min/max/pow，常量 pi/e/tau，变量 x（其他字母=参数）
 - echart: `{"type":"echart","title":"...","height":300,"preset":"bar|line|area|pie|scatter","data":[{"label":"...","value":n}],"series":[...]?}` — **ECharts 全功能图表**，视觉效果远超 `chart`（渐变、tooltip、动画、图例交互）；**preset 模式**：用和 `chart` 一样的 `data`/`series` 格式，自动构建主题化的 ECharts 配置（颜色跟随宿主主题）；**preset 一览**（只写 preset + data/series/links，主题自动跟随）：
@@ -102,7 +112,9 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 **full option 模式**：传 `"option":{...}` 直接写 ECharts 原生配置（支持 ECharts 内置图表及已注册的 `wordCloud` 词云扩展；其他第三方扩展不保证可用），option 中的函数会被过滤（只接受数据）。选择原则：**chart 轻量（无额外下载）适合 ≤8 点的快速对比；echart 视觉更丰富（渐变、tooltip、图例交互、dataZoom），但会按需下载约 1MB 引擎，多序列/大屏/交互场景优先**
 
 ### 交互
+
 **本地优先（v2.6）**：UI 自己能做的状态变化——判卷、判题、重置、展开、选中——一律本地即时完成，**零模型往返**。action 只用于必须模型参与的事（生成新内容、执行工具、下一步建议）。**交互组件必须带 action：不带 action 的按钮渲染为禁用态，用户点不了；带 action 的按钮点击后有「已触发」本地反馈。**
+
 - button: `{"type":"button","label":"...","tone":"primary|danger|success|ghost","full":true?,"small":true?,"icon":"emoji?","action":"refresh"?}`
 - **秘密禁令**：不得索取或生成密码、API Key、访问令牌、恢复码等秘密输入；遇到此类需求直接拒绝并解释
 - input: `{"type":"input","label":"...","placeholder":"...","inputType":"text|email|color|number","value":"...","action":"name"?,"id":"field-id"?}` — `color` 使用浏览器原生取色器，值使用 `#RRGGBB`；`number` 可作为 Computed 数值输入；action 在失焦**和回车**时触发（回车带 `submit:true`）；**blur 仅值有变化才发送**（聚焦又离开不产生空往返）；payload 带 `id` 帮模型定位字段；带 `id` 的值刷新后保留、并被 submit 收集进 `fields`
@@ -131,6 +143,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 ```json dsh-ui
 {"items":[{"type":"date-picker","label":"Travel dates","mode":"range","value":"2026-10-12/2026-10-18","min":"2026-10-01","max":"2026-10-31","id":"travel_dates"},{"type":"segmented-control","label":"View","options":["Agenda","Map"],"value":"Agenda","id":"view"},{"type":"text","content":"Map view selected","when":{"field":"view","op":"eq","value":"Map"}}]}
 ```
+
 - copy: `{"type":"copy","label":"<user-language action>","text":"<user-language text>","expandable":true?,"previewLines":n?}` · [docs/copy-preview.md](docs/copy-preview.md)
 
 **状态持久化（v2.7）**：radio 答案、checkbox 分组选择、交卷锁定、输入值和 Editor 草稿按「会话 + 内容指纹」自动保存——用户刷新页面/重开会话，同一块 UI 的状态原样恢复；你重渲染**相同内容**会保留用户状态，渲染**新内容**（换题等）自动从头开始。
@@ -142,6 +155,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 **卷子模式（多道选择题）**：每题一个 radio（带唯一 `group` + `answer` + `explanation`），最后放一个 submit（`groups` 列出全部题号）——用户全部选完点交卷，**分数和对错当场在 UI 里出现**，不用等你。只有换新题/进阶建议才发 action。不要每题单独发 action（会刷屏）。
 
 ### 高级
+
 - svg: `{"type":"svg","title":"<user-language title>","height":300,"code":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 100\"><rect width=\"200\" height=\"100\" fill=\"#534ab7\"/></svg>"}` — 独立 SVG 图片预览；`title`/`height` 可省略，height 为 100–800，code 最多 12,000 字符，超限会拒绝而不会截断；验证工具返回字段路径、实际长度和上限，请精简或拆成多个 svg 后重验。必须提供完整 SVG 文档（含 xmlns），建议带 viewBox。使用隔离图片模式，不支持脚本、宿主 CSS 或外部资源；图形无法加载时显示源码和提示。
 - mermaid: `{"type":"mermaid","code":"graph TD\\nA-->B"}` — flowchart/sequence/class/gantt/pie/er/state/journey；主题自动跟随宿主（暗/浅）；渲染完成后点图打开原生对话框查看大图，滚轮缩放、拖拽平移、工具栏放大/缩小/重置，Esc / 关闭 / 点遮罩返回并把焦点放回图表；弹层复用同一份已消毒 SVG，打开时不重跑渲染
 - diagram: `{"type":"diagram","kind":"architecture","id":"selectedNode","title":"<user-language title>","variant":"light|dark|editorial","nodes":[...],"edges":[...],"theme":{...}}` — **编辑级交互图解**（27 种视觉类型）。节点: `{"id":"a","label":"<user-language label>","description":"<detail shown after selection>","type":"focal|backend|store|external|input|optional|security","x":40,"y":40,"w":128,"h":48,"sub":"<user-language text>","tag":"<user-language text>"}`；边: `{"from":"a","to":"b","label":"<user-language label>","kind":"solid|dashed|accent|link"}`。用户可点击节点或按 Enter / Space 选择节点；图解会突出选中节点并显示说明。`id` 指定共享字段，所选节点 ID 可供其他组件的 `when.field` 读取。选择在本地更新，不触发模型 action。**规则由渲染器强制**: 正交连接器（r=8 弯折、禁止斜线）、4px 网格、语义 token（paper/ink/muted/accent）、焦点色 ≤2 个、复杂度预算（≤9 节点/≤12 边）、z-order（箭头在节点后）、边标签 6-10px 间隙。27 种 kind：architecture / it-state / flowchart / sequence / state / er / timeline / swimlane / quadrant / radar / loop / nested / tree / org-chart / layers / venn / pyramid / bar / line / gantt / scatter / high-level / process / medallion / data-flow / dp-integration / dp-security-matrix。**坐标类 kind**（architecture/it-state/high-level/process/medallion/data-flow/dp-integration）用 x/y/w/h 精确定位；**规则类 kind** 只给数据自动排版。架构/流程/层次结构优先用 diagram（自动布局需求才用 `mermaid`）。
@@ -205,7 +219,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 
 ## 回答级版式：不默认套 card 容器，焦点唯一
 
-**规则来自设计规范，不是口味**（`design` skill 的 `references/design-reference.md`）：
+**规则来自设计规范，不是口味**（`design` skill 的设计参考文档）：
 通用圆角矩形 `card` 不作为默认容器；这限制的是容器样式，不是 GenUI 的使用频率。`table`、`chart`、`list` 等组件可以直接使用。只有内容确实需要分组边界时才包卡片。
 「如果替换内容不需要改布局，那就是模板，重做」。
 
@@ -399,7 +413,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 8. **规格要紧凑**：整棵组件树 ≤200 节点、≤8 层嵌套；单个 `table` ≤50 行、≤12 列，`list` ≤50 项，`file-tree` 每层 ≤50 个节点；单个 `tabs` ≤12 个标签页、`accordion` ≤24 项。超出限制的内容会被截断，并由 `validate_dsh_ui` 报告；长内容请分成多个组件，并在发出围栏前调用 `validate_dsh_ui` 检查。
 9. **一个主题选一个主组件**：命中映射表后选**一种**组件承载，同一信息不要用两种组件重复表达（同一批数据又画 bars 又画 donut = 冗余）
 10. **一个主题一个主组件**：不要把同一件事拆成五块小组件凑数量；宁缺毋滥，纯文字讲清就不出。反例：该用 `table` 对比时写三段 `text`；一个 `stat` 能说清的事套 `card`+`grid`；与内容无关的 `scene3d` 炫技——3D 只在内容本身就是几何/空间时才用
-12. **给命令就给能直接粘的**：多行 python 一律写成 heredoc 包装的**一整段** shell 代码块（`python - <<'PY'` … `PY`），不要用 `python -c "…"` 配反斜杠续行——续行在复制/粘贴里最容易碎成多行，用户还得自己拼回 heredoc。单行表达式才用 `-c`，且必须真的在一行内写完。示例：
+11. **给命令就给能直接粘的**：多行 python 一律写成 heredoc 包装的**一整段** shell 代码块（`python - <<'PY'` … `PY`），不要用 `python -c "…"` 配反斜杠续行——续行在复制/粘贴里最容易碎成多行，用户还得自己拼回 heredoc。单行表达式才用 `-c`，且必须真的在一行内写完。示例：
 
     ````text
     cd /path/to/repo
@@ -411,7 +425,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
     ````
 
     同理：需要用户执行的脚本放进 `code` 节点（`lang`: `bash`/`python`）或正文围栏，并保证**从第一行到最后一行一次粘进终端就能跑**。
-11. **先验后发（复杂 UI）**：发出 ```dsh-ui 围栏前，若 spec ≥3 个组件、含 `table`，或任一组件接近资源上限，先调用 `validate_dsh_ui` 工具（参数 `spec` 传围栏内的 JSON 文本）验证；返回 `next=fix_and_revalidate` 就按诊断修正后重新验证；返回 `next=emit_fence` 再发出；返回 `next=emit_repaired_fence` 时直接照抄 `repaired_json` 发出，无需再次验证；简单 UI（≤2 个组件且未接近资源上限）不必验证，渲染器会自动修复大部分标点/括号错误
+12. **先验后发（复杂 UI）**：发出 ```dsh-ui 围栏前，若 spec ≥3 个组件、含 `table`，或任一组件接近资源上限，先调用 `validate_dsh_ui` 工具（参数 `spec` 传围栏内的 JSON 文本）验证；返回 `next=fix_and_revalidate` 就按诊断修正后重新验证；返回 `next=emit_fence` 再发出；返回 `next=emit_repaired_fence` 时直接照抄 `repaired_json` 发出，无需再次验证；简单 UI（≤2 个组件且未接近资源上限）不必验证，渲染器会自动修复大部分标点/括号错误
 
 ### 地图 `map`：地点选择与内联路线
 
