@@ -37,8 +37,11 @@ import { BlocksNode } from './blocks.tsx'
 import { EditorNode } from './editor.tsx'
 import { EntityCardNode } from './entity-card.tsx'
 import { PopoverNode } from './popover.tsx'
+import { LinkedInPostNode, XPostNode } from './social-post.tsx'
 import { DatePickerNode } from './date-picker.tsx'
 import { SegmentedControlNode } from './segmented-control.tsx'
+import { ScheduleNode } from './schedule.tsx'
+import { GanttNode } from './gantt.tsx'
 
 import { EChartNode } from '../EChartNode.tsx'
 
@@ -423,6 +426,8 @@ function renderNodeBody(
     case 'editor': return <EditorNode key={JSON.stringify([path, node.id])} node={node} answers={answers} />
     case 'entity-card': return <EntityCardNode key={key} node={node} onAction={onAction} />
     case 'popover': return <PopoverNode key={key} node={node} />
+    case 'x-post': return <XPostNode key={key} node={node} />
+    case 'linkedin-post': return <LinkedInPostNode key={JSON.stringify([path, node.device ?? 'desktop'])} node={node} />
     case 'compare': return <CompareNode key={key} node={node} />
     case 'choices': return <ChoicesNode key={JSON.stringify([path, node.group, answers?.round ?? 0])} node={node} onAction={onAction} answers={answers} />
     case 'image': return <ImageNode key={`${key}:${node.src}`} node={node} />
@@ -640,6 +645,8 @@ function renderNodeBody(
     case 'svg': return <SvgNode key={key} node={node} />
     case 'scene3d': return <Scene3DNode key={key} node={node} />
     case 'timeline': return <TimelineNode key={key} node={node} />
+    case 'schedule': return <ScheduleNode key={key} node={node} onAction={onAction} />
+    case 'gantt': return <GanttNode key={key} node={node} onAction={onAction} />
     case 'file-tree': return <FileTreeNode key={key} node={node} />
     case 'breadcrumb': return <BreadcrumbNode key={key} node={node} />
     case 'quiz': return <QuizNode key={key} node={node} onAction={onAction} />

@@ -35,7 +35,7 @@ export type SkeletonShape =
 /** First component type → placeholder shape. Unknown types stay generic. */
 const SHAPE_BY_TYPE: Readonly<Record<string, SkeletonShape>> = {
   card: 'card', accordion: 'card', tabs: 'card', col: 'card', row: 'card',
-  table: 'table',
+  table: 'table', schedule: 'table', gantt: 'table',
   chart: 'chart', echart: 'chart', plot: 'chart', sparkline: 'chart',
   list: 'list', steps: 'list', timeline: 'list', 'file-tree': 'list', keyvalue: 'list',
   stat: 'stat', progress: 'stat', badge: 'stat',
@@ -55,6 +55,7 @@ const SHAPE_BY_TYPE: Readonly<Record<string, SkeletonShape>> = {
   divider: 'rule', spacer: 'rule',
   hero: 'media', carousel: 'media', map: 'media', svg: 'media',
   blocks: 'card', grid: 'card', 'entity-card': 'card',
+  'x-post': 'card', 'linkedin-post': 'card',
 }
 
 /** The `type` of the first component written, if it is already readable. */

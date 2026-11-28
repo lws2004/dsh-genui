@@ -69,6 +69,7 @@ export const BUTTON_TONES = ['primary', 'danger', 'success', 'ghost'] as const
 export const BADGE_TONES = ['success', 'warn', 'danger', 'accent'] as const
 export const INPUT_TYPES = ['text', 'email', 'password', 'color', 'number'] as const
 export const DATE_PICKER_MODES = ['single', 'range'] as const
+export const SCHEDULE_VIEWS = ['week', 'timeline'] as const
 export const CALLOUT_TONES = ['info', 'success', 'warning', 'error'] as const
 export const CHART_KINDS = ['bars', 'line', 'donut'] as const
 export const PLOT_KINDS = ['line', 'area', 'scatter'] as const
@@ -114,6 +115,8 @@ export const ICON_TONES = ['default', 'muted', 'info', 'success', 'warning', 'da
 /** Hero cover tones. */
 export const HERO_TONES = ['accent', 'success', 'warning', 'danger'] as const
 /** Table cell renderers (`table.types`, one entry per column). */
+/** Feed layouts a LinkedIn preview can emulate. */
+export const LINKEDIN_DEVICES = ['desktop', 'mobile'] as const
 export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge', 'spark', 'ring', 'index', 'group'] as const
 
 const schema = (
@@ -164,6 +167,25 @@ const recordSchema = (
 const nodeFields = {
   type: 'string', span: 'number', when: 'object', enableWhen: 'object', disabledReason: 'string',
 } as const
+
+const clockRangeFields = { start: 'string', end: 'string' } as const
+const clockRangeSchema = recordSchema(['start', 'end'], clockRangeFields)
+const scheduleFields = { ...nodeFields, title: 'string', axis: 'object', rows: 'array' } as const
+const scheduleEventFields = {
+  ...clockRangeFields, label: 'string', hint: 'string', color: 'string', tone: 'string', action: 'string',
+} as const
+const scheduleEventEnums = { tone: BLOCK_CELL_TONES }
+const scheduleEventSchema = recordSchema(['label', 'start', 'end'], scheduleEventFields, {}, scheduleEventEnums)
+const scheduleRowFields = { ...scheduleEventFields, group: 'string', items: 'array' } as const
+const scheduleRowSchema = recordSchema([], scheduleRowFields,
+  { items: scheduleEventSchema }, scheduleEventEnums)
+const ganttEventFields = {
+  ...scheduleEventFields, progress: 'number', milestone: 'boolean',
+} as const
+const ganttEventSchema = recordSchema(['label', 'start'], ganttEventFields, {}, scheduleEventEnums)
+const ganttRowSchema = recordSchema([], {
+  ...ganttEventFields, group: 'string', items: 'array', axis: 'object', now: 'string', nowLabel: 'string',
+}, { items: ganttEventSchema, axis: clockRangeSchema }, scheduleEventEnums)
 
 /** Conditional visibility carried by any node: `{ field, op, value? }`. */
 const whenSchema = recordSchema(['field', 'op'], {
@@ -238,6 +260,15 @@ const imageGroupItemSchema = recordSchema(['src'], {
 
 const entityMetadataSchema = recordSchema(['label', 'value'], { label: 'string', value: 'string' })
 const entityActionSchema = recordSchema(['label', 'action'], { label: 'string', action: 'string', tone: 'string' }, {}, { tone: BUTTON_TONES })
+
+/** Author of a social post preview (`x-post` / `linkedin-post`). */
+const socialAuthorSchema = recordSchema(['name'], {
+  name: 'string', handle: 'string', headline: 'string', avatar: 'string', verified: 'boolean',
+}, {}, {}, { username: 'handle', image: 'avatar', title: 'headline' })
+const xQuoteSchema = recordSchema(['text'], { text: 'string', name: 'string', handle: 'string' }, {}, {}, { content: 'text' })
+const xPostItemSchema = recordSchema(['text'], {
+  text: 'string', images: 'array', quote: 'object',
+}, { quote: xQuoteSchema }, {}, { content: 'text', body: 'text', media: 'images' })
 
 /** One side of a `compare` pair: the same media policy, plus a visible chip. */
 /** One option row: label + cost + optional evidence and state. */
@@ -347,6 +378,14 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   'entity-card': schema(['name'], {
     ...nodeFields, name: 'string', image: 'string', imageAlt: 'string', description: 'string', metadata: 'array', href: 'string', sourceLabel: 'string', actions: 'array',
   }, {}, { nested: { metadata: entityMetadataSchema, actions: entityActionSchema } }),
+  // Social post previews: drafts reviewed before publishing. `tweets`/`thread`
+  // are what models call the post list; `content`/`body` the LinkedIn text.
+  'x-post': schema(['author', 'posts'], {
+    ...nodeFields, author: 'object', posts: 'array', timestamp: 'string', limit: 'number',
+  }, { tweets: 'posts', thread: 'posts', user: 'author' }, { nested: { author: socialAuthorSchema, posts: xPostItemSchema } }),
+  'linkedin-post': schema(['author', 'text'], {
+    ...nodeFields, author: 'object', text: 'string', images: 'array', device: 'string', timestamp: 'string',
+  }, { content: 'text', body: 'text', media: 'images', user: 'author' }, { nested: { author: socialAuthorSchema }, enums: { device: LINKEDIN_DEVICES } }),
   popover: schema(['label', 'content'], {
     ...nodeFields, label: 'string', content: 'string', trigger: 'string', placement: 'string',
   }, {}, { enums: { trigger: POPOVER_TRIGGERS, placement: POPOVER_PLACEMENTS } }),
@@ -402,7 +441,7 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   code: schema(['code'], { ...nodeFields, lang: 'string', code: 'string' }, { content: 'code', text: 'code' }),
   col: schema(['items'], { ...nodeFields, items: 'nodes', gap: 'number', width: 'number' }),
   copy: schema(['text'], { ...nodeFields, label: 'string', text: 'string', expandable: 'boolean', previewLines: 'number' }, { content: 'text', code: 'text', value: 'text' }),
-  diagram: schema(['kind', 'nodes'], { ...nodeFields, id: 'string', kind: 'string', variant: 'string', title: 'string', nodes: 'array', edges: 'array', zones: 'array', theme: 'object' }, {}, {
+  diagram: schema(['nodes'], { ...nodeFields, id: 'string', kind: 'string', variant: 'string', title: 'string', nodes: 'array', edges: 'array', zones: 'array', theme: 'object' }, {}, {
     nested: { nodes: diagramNodeSchema, edges: diagramEdgeSchema, zones: diagramZoneSchema, theme: diagramThemeSchema },
     enums: { kind: DIAGRAM_KINDS, variant: DIAGRAM_VARIANTS },
   }),
@@ -434,8 +473,8 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   link: schema(['label'], { ...nodeFields, label: 'string', href: 'string' }),
   list: schema(['items'], { ...nodeFields, items: 'array', filter: 'string' }),
   map: schema(['locations'], { ...nodeFields, id: 'string', title: 'string', locations: 'array', routes: 'array', selected: 'string', center: 'array', zoom: 'number', height: 'number' }, {}, { nested: { locations: recordSchema(['id', 'label', 'coordinates'], { id: 'string', label: 'string', coordinates: 'array', description: 'string' }), routes: recordSchema(['id', 'label', 'coordinates'], { id: 'string', label: 'string', coordinates: 'array' }) } }),
-  mermaid: schema(['code'], { ...nodeFields, code: 'string' }),
-  svg: schema(['code'], { ...nodeFields, code: 'string', title: 'string', height: 'number' }),
+  mermaid: schema(['code'], { ...nodeFields, code: 'string' }, { content: 'code', text: 'code' }),
+  svg: schema(['code'], { ...nodeFields, code: 'string', title: 'string', height: 'number' }, { content: 'code', text: 'code' }),
   plot: schema(['series'], { ...nodeFields, series: 'array', xMin: 'number', xMax: 'number', yMin: 'number', yMax: 'number', title: 'string' }, {}, { nested: { series: plotSeriesSchema } }),
   progress: schema(['value'], { ...nodeFields, value: 'number', label: 'string', valueLabel: 'string', variant: 'string', target: 'number' }, {}, { enums: { variant: PROGRESS_VARIANTS } }),
   // `items` joins the §175 aliases: it is the field name models reach for when
@@ -444,6 +483,13 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   quiz: schema(['question', 'options'], { ...nodeFields, question: 'string', options: 'array', explanation: 'string', id: 'string', action: 'string' }, { title: 'question', text: 'question', choices: 'options', items: 'options' }),
   radio: schema(['options'], { ...nodeFields, label: 'string', options: 'array', selected: 'number', action: 'string', group: 'string', answer: 'unknown', explanation: 'string' }, { items: 'options' }),
   row: schema(['items'], { ...nodeFields, items: 'nodes', wrap: 'boolean', spacer: 'boolean', justify: 'string' }, {}, { enums: { justify: ROW_JUSTIFY } }),
+  gantt: schema(['rows'], { ...scheduleFields, now: 'string', nowLabel: 'string' }, {}, {
+    nested: { axis: clockRangeSchema, rows: ganttRowSchema },
+  }),
+  schedule: schema(['axis', 'rows'], { ...scheduleFields, view: 'string' }, {}, {
+    nested: { axis: clockRangeSchema, rows: scheduleRowSchema },
+    enums: { view: SCHEDULE_VIEWS },
+  }),
   scene3d: schema(['meshes'], { ...nodeFields, title: 'string', meshes: 'array', ambient: 'number', background: 'string' }, {}, { nested: { meshes: sceneMeshSchema } }),
   select: schema(['options'], { ...nodeFields, label: 'string', options: 'array', action: 'string', selected: 'number', id: 'string' }, { items: 'options' }),
   'segmented-control': schema(['options'], { ...nodeFields, label: 'string', options: 'array', value: 'string', id: 'string', action: 'string' }),

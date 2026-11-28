@@ -8,7 +8,7 @@
  * v1 interactivity is client-side only: buttons, tabs, checkboxes, and inputs
  * are operable, but events do NOT flow back to the model.
  */
-import { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, POPOVER_PLACEMENTS, WHEN_OPS } from './genui-runtime/schema.ts'
+import { BLOCK_CELL_TONES, COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, POPOVER_PLACEMENTS, SCHEDULE_VIEWS, WHEN_OPS } from './genui-runtime/schema.ts'
 
 /** One node in the component tree. */
 /** Layout hints accepted by every node: `span` is how many columns the node
@@ -99,6 +99,8 @@ export type GenuiNode = (
   | GenuiScene3D
   | GenuiMap
   | GenuiTimeline
+  | GenuiSchedule
+  | GenuiGantt
   | GenuiFileTree
   | GenuiBreadcrumb
   | GenuiQuiz
@@ -109,6 +111,8 @@ export type GenuiNode = (
   | GenuiEditor
   | GenuiEntityCard
   | GenuiPopover
+  | GenuiXPost
+  | GenuiLinkedInPost
 ) & GenuiLayoutHints
 
   | (GenuiEChart & GenuiLayoutHints)
@@ -238,6 +242,54 @@ export interface GenuiEntityCard {
   href?: string
   sourceLabel?: string
   actions?: GenuiEntityAction[]
+}
+
+/** Who a social post preview is attributed to. */
+export interface GenuiSocialAuthor {
+  name: string
+  /** X handle without or with the leading `@`. */
+  handle?: string
+  /** LinkedIn headline shown under the name. */
+  headline?: string
+  /** http(s) or same-origin relative image; initials are drawn when missing or broken. */
+  avatar?: string
+  verified?: boolean
+}
+
+/** A post quoted inside an X post. */
+export interface GenuiXQuote {
+  text: string
+  name?: string
+  handle?: string
+}
+
+/** One post of an X thread. */
+export interface GenuiXPostItem {
+  text: string
+  /** Up to four attached images (same URL rules as `image`). */
+  images?: string[]
+  quote?: GenuiXQuote
+}
+
+/** Preview of an X post or thread, one card per post, with a weighted character counter. */
+export interface GenuiXPost {
+  type: 'x-post'
+  author: GenuiSocialAuthor
+  posts: GenuiXPostItem[]
+  /** Free text shown after the handle, e.g. "Draft" or "2h". */
+  timestamp?: string
+  /** Character limit per post; 280 unless the account has a longer limit. */
+  limit?: number
+}
+
+/** Preview of a LinkedIn feed post with the "…see more" fold. */
+export interface GenuiLinkedInPost {
+  type: 'linkedin-post'
+  author: GenuiSocialAuthor
+  text: string
+  images?: string[]
+  device?: 'desktop' | 'mobile'
+  timestamp?: string
 }
 
 /** A keyboard-operable floating explanation attached to a labelled trigger. */
@@ -420,9 +472,9 @@ export interface GenuiChoices {
   /** `multi` cap; extra clicks are ignored instead of silently replacing. */
   max?: number
   /**
-   * Paper member key. With `group`, the selection joins the block's shared
-   * answers registry instead of staying local, so a sibling `submit` can
-   * collect it and grade locally — this is what retires `radio`.
+   * Shared submission key. A sibling `submit` collects a label in single mode
+   * or an array of labels in multi mode. If an answer is set for local
+   * grading, the grouped question uses single mode.
    */
   group?: string
   /** Correct option for LOCAL grading: index or label. */
@@ -1009,6 +1061,65 @@ export interface GenuiTimelineItem {
 export interface GenuiTimeline {
   type: 'timeline'
   items: GenuiTimelineItem[]
+}
+
+/** Same-day clock times in HH:mm. 24:00 is valid as an end only. */
+export interface GenuiScheduleRange {
+  start: string
+  end: string
+}
+
+export interface GenuiScheduleEvent extends GenuiScheduleRange {
+  label: string
+  hint?: string
+  tone?: typeof BLOCK_CELL_TONES[number]
+  color?: string
+  action?: string
+}
+
+export interface GenuiScheduleGroup {
+  group: string
+  items: GenuiScheduleEvent[]
+}
+
+export type GenuiScheduleRow = GenuiScheduleEvent | GenuiScheduleGroup
+
+export interface GenuiSchedule {
+  type: 'schedule'
+  title?: string
+  /** Week columns by default. Timeline puts the shared clock axis across the top. */
+  view?: typeof SCHEDULE_VIEWS[number]
+  axis: GenuiScheduleRange
+  rows: GenuiScheduleRow[]
+}
+
+export interface GenuiGanttEvent extends GenuiScheduleEvent {
+  /** Completion percentage (0..100) rendered inside the bar. */
+  progress?: number
+  /** Point-in-time milestone diamond; `end` may be omitted or equal to `start`. */
+  milestone?: boolean
+}
+
+export interface GenuiGanttGroup {
+  group: string
+  items: GenuiGanttEvent[]
+  axis?: GenuiScheduleRange
+  now?: string
+  nowLabel?: string
+}
+
+export type GenuiGanttRow = GenuiGanttEvent | GenuiGanttGroup
+
+export interface GenuiGantt {
+  type: 'gantt'
+  title?: string
+  /** Optional on gantt: inferred from top-level and shared-axis tasks when omitted. */
+  axis?: GenuiScheduleRange
+  /** Reference timestamp marker drawn as a vertical line across the timeline. */
+  now?: string
+  nowLabel?: string
+  /** Each task gets a row. A group axis replaces the shared axis for that group. */
+  rows: GenuiGanttRow[]
 }
 
 export interface GenuiFileTreeNode {

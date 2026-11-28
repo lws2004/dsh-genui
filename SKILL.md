@@ -47,10 +47,11 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 ## 组件词汇（只允许这些 type）
 
 布局：`text` `row` `col` `grid` `card` `carousel` `divider` `spacer` `arrow` `hero`
-展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `image-group` `compare` `audio` `video` `timeline` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps` `icon` `blocks`
+展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `image-group` `compare` `audio` `video` `timeline` `schedule` `gantt` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps` `icon` `blocks`
 图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）`map`
 交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `editor` `date-picker` `segmented-control` `tabs` `accordion` `copy` `link` `submit` `popover` `choices`
 高级：`svg` `mermaid` `diagram` `scene3d` `quiz` `entity-card`
+社交帖预览：`x-post` `linkedin-post`（发布前预览 X / LinkedIn 帖子草稿）
 
 ### 布局
 
@@ -83,6 +84,8 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 - table: `{"type":"table","columns":["..."],"rows":[["...","..."]],"types":["text|num|delta|bar|badge"]?,"details":[[...]]?,"total":true?}` — 表头点击本地排序（升/降/还原，零往返）；数值感知：千分位（`1,234`）、`k/m/b`、`万/亿`、`%`、货币符号都能按真实数值比较，纯数值列自动右对齐；**带符号单元格自动着色**（`+12.4%` 绿、`-3` 红，无需额外字段）；`types` 可按列指定 `bar`（0-100 内联进度条）、`ring`（0-100 小环）、`spark`（单元格写 `"3,5,4,8"` 画微趋势线）、`badge`（胶囊标签）、`delta`（强制涨跌色）、`num`（强制右对齐）、`index`（行号）、`group`（首列当分组标题：该行只有第一格有内容时渲染成跨列小标题）；`"total":true` 追加合计行（数值列自动求和）；**`"export":true`**：表格上方出现「复制 Markdown / 复制 CSV」两个小按钮（纯本地剪贴板，不发请求）；**`"filter":"输入框id"`**：把表格和某个 input/select 绑定，读者输入即时过滤（`filterColumn` 可限定列）——数据多时**默认就该配一个**；**`"sortField":"下拉id"`** 用下拉的值（列名）排序；**`"details"` 与 rows 同序**，第 i 项是该行展开后的内容（可放任意组件，`null` = 该行不可展开）——首列出现 chevron，点开在整行下方展开明细，适合「主表 + 明细」；**`"wrap":true`** 开启长文本排版：单元格、长标识符和行内代码自动折行，保留显式换行；列有可读宽度下限，窄容器仍可横向滚动，嵌套表格独立选择模式（默认关闭，数据表保持单行紧凑；当某列是整句描述时开启）
 - keyvalue: `{"type":"keyvalue","pairs":[{"key":"...","value":"..."}]}`
 - timeline: `{"type":"timeline","items":[{"title":"...","desc":"...","time":"..."}]}`
+- schedule: `{"type":"schedule","title":"<title>","axis":{"start":"08:00","end":"18:00"},"rows":[{"group":"<day>","items":[{"label":"<course>","start":"09:00","end":"10:30","hint":"<room>","tone":"accent"}]}]}` — 时间块的位置和长度按实际分钟计算。默认 `view:"week"`，每组一列，适合课表；`view:"timeline"` 将时间横放，每组或单项一行，适合排期。单项可直接写进 `rows`，同组时间重叠时自动分开。所有时间用 24 小时制 `HH:mm`，项目须位于轴范围内且结束晚于开始。跨午夜的日程分到两个日期组，前一段可用 `24:00` 结束。可选 `hint` 放地点或备注，`tone` 支持 accent/success/warning/danger/muted，`color` 可覆盖配色。悬停或聚焦可看详情。配置 `action` 时，点击回传 `{type:"schedule",label,start,end,group?}`，其余点击在本地显示详情。
+- gantt: `{"type":"gantt","title":"<title>"?,"axis":{"start":"08:00","end":"20:00"}?,"now":"14:30"?,"nowLabel":"<now>"?,"rows":[{"label":"<task>","start":"15:00","end":"16:30","progress":60?,"hint":"<note>","color":"#fb923c"},{"group":"<phase>","items":[{"label":"<milestone>","start":"18:00","milestone":true,"tone":"success"}]}]}` — 左栏固定任务名、时间段与备注，右侧按实际起止时间绘制横条与进度填充。支持同日 `HH:mm`、多日 `YYYY-MM-DD`（含双休日底纹与起止日包含计算）、跨日 `YYYY-MM-DD HH:mm` 三种时间尺度；省略 `axis` 时按任务自动推导区间。支持 `{group,items}` 可折叠分组（默认共用根轴并展示阶段汇总跨度条，也可在分组上写 `axis:{start,end}` 与 `now`）、`milestone:true` 里程碑菱形（可省略 `end`）、`progress`（0–100）和 `now`/`nowLabel` 参考线。事件 `hint`/`tone`/`color`/`action` 同 schedule，点击带 `action` 的任务回传 `{type:"gantt",label,start,end,group?}`。
 - file-tree: `{"type":"file-tree","items":[{"name":"...","type":"file|dir","children":[...]?}]}` — 目录行可点击折叠/展开（本地，零往返）
 - breadcrumb: `{"type":"breadcrumb","items":["<user-language text>","<user-language text>","<user-language text>"]}`
 - diff: `{"type":"diff","diffs":[{"path":"...","oldText":"..."|null,"newText":"..."}]}`
@@ -111,6 +114,11 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 `bar` · `line` · `area` · `pie` · `scatter` · **`radar`**（每 series 一个多边形，指标取第一条 series 的 label）· **`gauge`**（每个 datum 一个仪表，适合单 KPI）· **`funnel`**（漏斗/转化）· **`treemap`**（体积/层级占比）· **`sankey`**（流向，用 `links:[{from,to,value}]`）· **`graph`**（关系图，`links` 驱动，节点大小随连接数）· **`heatmap`**（`series` 当行、第一条 series 的 label 当列）· **`bigline`**（长序列 + 内置缩放）· **`wordCloud`**（词云，`data:[{label,value}]` 的 value 表示权重；颜色跟随 `palette` 或主题调色板）
 **full option 模式**：传 `"option":{...}` 直接写 ECharts 原生配置（支持 ECharts 内置图表及已注册的 `wordCloud` 词云扩展；其他第三方扩展不保证可用），option 中的函数会被过滤（只接受数据）。选择原则：**chart 轻量（无额外下载）适合 ≤8 点的快速对比；echart 视觉更丰富（渐变、tooltip、图例交互、dataZoom），但会按需下载约 1MB 引擎，多序列/大屏/交互场景优先**
 
+### 社交帖预览
+**何时用**：用户要在发布前审阅社交帖草稿（X 帖子/串推、LinkedIn 帖子）时，用这两个组件代替纯文字卡片——读者能看到真实的排版、每条推的字数、LinkedIn 信息流里「…see more」之前露出多少。正文**逐字照抄草稿**：换行与空行原样保留，不写 Markdown（平台不渲染 `**`），`\n` 就是换行。
+- x-post: `{"type":"x-post","author":{"name":"Alex Example","handle":"alex","avatar":"/api/file?path=...","verified":true},"timestamp":"Draft","posts":[{"text":"第一条\n\n第二段","images":["https://example.com/a.png"]},{"text":"第二条","quote":{"name":"Someone","handle":"someone","text":"被引用的帖子"}}],"limit":280}` — 一条 `posts` 就是单帖，多条画成串推（头像下的竖线把推文连起来）。每条右下角是 X 式字数环：用 X 官方 `twitter-text` 解析器（`parseTweet`，v3 默认配置）计加权字数——URL 固定 23（不带 `http` 的裸域名、括号配对的 `…/Foo_(bar)` 都算一个完整链接，句末标点不算进链接），中日韩字符与 emoji 各算 2（键帽 `1️⃣`、肤色、国旗和常见 ZWJ 组合都算一个 emoji），换行算 1。emoji 识别跟随 twitter-text 3.1.0 自带的 emoji 数据（Unicode 12 前后）：部分较新的 emoji 会被拆开、算得更多（如 `❤️‍🔥` 算 5）。显示 `加权字数/limit`，最后 20 字变黄，超出 `limit`（默认 280，Premium 长帖可调大）变红并显示负数；含 X 不允许的字符（如 U+FFFE、U+FEFF）时也变红并提示「X would reject this post」；空帖保持中性（草稿还没写，不算错误）。链接按 X 的 t.co 显示方式缩短（去掉协议和 `www.`，过长截断），悬停可见完整地址。`images` 每条最多 4 张，地址规则同 `image`（http(s) 或同源相对，如 `/api/file?path=`）；`avatar` 缺失或加载失败时画首字母头像。`handle` 带不带 `@` 都行。最多 25 条。
+- linkedin-post: `{"type":"linkedin-post","author":{"name":"Alex Example","headline":"Product designer","avatar":"..."},"text":"开头一句钩子\n\n正文……","images":["..."],"device":"desktop|mobile","timestamp":"1h"}` — 按 LinkedIn 信息流**估算**折叠：桌面约 210 字符、手机约 140 字符，且最多 3 行（每个换行/空行占掉一整行），先到哪个就在哪里截断并显示「…see more」；点击本地展开/收起（零往返）。LinkedIn 不公开折叠位置，数值是 2026 年的实测近似，所以卡片下方的说明以「≈」开头并明确标注为估算（如「≈ First 115 of 269 characters visible before “see more” on desktop (estimate; LinkedIn doesn’t publish the cut-off …)」），同时给出截断原因，并带桌面/手机切换。超过 3000 字符会标红提示。
+
 ### 交互
 
 **本地优先（v2.6）**：UI 自己能做的状态变化——判卷、判题、重置、展开、选中——一律本地即时完成，**零模型往返**。action 只用于必须模型参与的事（生成新内容、执行工具、下一步建议）。**交互组件必须带 action：不带 action 的按钮渲染为禁用态，用户点不了；带 action 的按钮点击后有「已触发」本地反馈。**
@@ -124,7 +132,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 - checkbox: `{"type":"checkbox","label":"<user-language option>","checked":true?,"action":"toggle"?,"group":"group-id"?}` — 默认保持逐次 `action` 行为；**加 `group` 进入多选聚合模式**：同组 checkbox 可反复勾选/取消，变化只在本地记录、不发逐次 action，兄弟 `submit` 一次性把该组已选 label 作为字符串数组放进 `answers`（例如 `{"styles":["<user-language option>","<user-language option>"]}`）
 - slider: `{"type":"slider","label":"...","min":0,"max":100,"step":1,"value":n?,"action":"name"?,"id":"field-id"?}` — 数值表单滑块：实时显示数值；带 `id` 跨刷新保留并进 submit 的 `fields`（拖拽经防抖合并成一次 action）
 - radio（**legacy，仅用于兼容老围栏**：试卷与决策都改用 `choices`。`choices` 的 `group` + `answer` + `explanation` + 兄弟 `submit` 已覆盖本地判分，且每个选项还能带代价与证据。新回答不要再用 radio）: `{"type":"radio","label":"<user-language label>","options":["<user-language option>","<user-language option>"],"selected":n?,"action":"pick"?}` — 单选；**加 `"group":"group-id"` 进入聚合模式**：选择只本地记录、不发往返；可设置 `"answer":正确下标或标签` 和 `"explanation":"<user-language explanation>"`，在纯 radio 且没有其他待发送表单状态时本地判卷
-- choices: `{"type":"choices","title":"<user-language title>","prompt":"<user-language question>","mode":"single|multi","max":2,"submit":"<button label>","action":"<action>","items":[{"label":"<option>","hint":"<one-line cost>","meta":"P0","recommended":true},{"label":"<option>","hint":"...","disabled":true,"reason":"<why unavailable>"}]}` — **要读者做决定的列表**，不是读的列表：每个选项自带一行代价（`hint`）、可选证据（`meta`，右对齐等宽）、`recommended` 推荐标记、`disabled` + `reason`（保留在列表里而不是删掉，读者要看得到为什么不行）。`mode` 默认单选；`multi` 配 `max` 控制上限。选中的行左侧有强调条 + 淡底，提交后显示「已发送 · 仍可修改」并且**允许继续改**（改了就清掉已发送状态）。**需要模型接收选择并推进对话时，必须同时提供 `submit` 和非空 `action`**，点击提交后回传 `{question, selected, mode}`。缺少 `action` 时选择仅保存在当前界面，无法推进对话，界面会提前提示；试卷题目可通过 `group` 和同一 fence 中的 `submit` 收集答案。最多 8 项——超过 8 项说明这是一张表，不是一次选择。
+- choices: `{"type":"choices","title":"<user-language title>","prompt":"<user-language question>","mode":"single|multi","max":2,"submit":"<button label>","action":"<action>","items":[{"label":"<option>","hint":"<one-line cost>","meta":"P0","recommended":true},{"label":"<option>","hint":"...","disabled":true,"reason":"<why unavailable>"}]}` — **要读者做决定的列表**，不是读的列表：每个选项自带一行代价（`hint`）、可选证据（`meta`，右对齐等宽）、`recommended` 推荐标记、`disabled` + `reason`（保留在列表里而不是删掉，读者要看得到为什么不行）。`mode` 默认单选；`multi` 配 `max` 控制上限。选中的行左侧有强调条 + 淡底，提交后显示「已发送 · 仍可修改」并且**允许继续改**（改了就清掉已发送状态）。**需要模型接收选择并推进对话时，必须同时提供 `submit` 和非空 `action`**，点击提交后回传 `{question, selected, mode}`。缺少 `action` 时选择仅保存在当前界面，无法推进对话，界面会提前提示。同一表单包含多组选项时，每个 `choices` 使用唯一的 `group`，由同一围栏的 `submit.groups` 收集。单选组在 `answers` 中传字符串，多选组传字符串数组。带 `answer` 的分组题用于本地判分，按单选处理。最多 8 项——超过 8 项说明这是一张表，不是一次选择。
 - link: `{"type":"link","label":"...","href":"https://..."?}` — 仅 http(s)/mailto 协议被接受；无 `href` 时渲染为纯文本样式（不会假装可点）
 - when（**任何节点都能带的条件显隐**）: `{"field":"<id 或 group>","op":"eq|neq|in|not-in|gt|gte|lt|lte|empty|not-empty|checked","value":...}` — 条件读的是**当前 block 自己的状态**：`input/select/slider/textarea/editor/date-picker/segmented-control/map/diagram` 按 `id`，`radio/checkbox/choices` 按 `group`。满足才渲染，不满足整棵子树都不出现；状态变化即时生效，不需要模型往返。字段显隐条件不能互相形成循环引用。
   - **典型用法**：选了「公司主体」才出现「税号」；金额 > 1000 才出现「分期」；选了「自定义」才展开参数（`eq`）；多选里含「其他」才出现补充输入（`in`）。
@@ -180,7 +188,9 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 | 回答的视觉锚点（第一个组件） | `hero`（封面块，一条回答最多一个） |
 | 想排版不呆板 | `grid` + 子节点 `span`（bento：宽窄混排） |
 | 数据多、需要读者自己找 | `input`（id）+ `table`/`chart`/`list` 的 `filter` 绑定 |
-| 流程 / 步骤 / 阶段 / 时间线 | `steps`、`timeline`、`mermaid`（flowchart/sequence/gantt） |
+| 流程 / 步骤 / 阶段 / 时间线 | `steps`、`timeline`、`mermaid`（flowchart/sequence） |
+| 课程表 / 日程 | `schedule`（按天分栏或横向时间轴） |
+| 按时长逐行对比任务 | `gantt`（甘特图） |
 | 架构 / 系统拓扑 / 数据流 / 品牌图 | `diagram`（编辑级，27 种类型；自动布局需求才用 `mermaid`） |
 | 目录 / 文件结构 / 层级关系 | `file-tree`、`mermaid`、`accordion` |
 | 状态一览 / 检查结果 | `badge` + `table` + `progress` 组合 |
@@ -405,7 +415,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 1. **按呈现位置选择通道**：正文内联内容使用围栏；工具结果区域的独立 UI 使用 `render_ui`（仅在该工具可用时）；持续更新的会话面板使用 `panel:true`。围栏和工具都支持交互状态保存，不以是否交互或是否保存状态区分。围栏一闭合就立即渲染（不等整条回答结束），前后可以自然衔接文字。
 2. **组合优先**：复杂界面用 `grid`+`card`+`stat`+`table` 拼，不要追求单一巨型组件
 3. **JSON 必须严格合法**：调用校验工具后，`next=emit_fence` 时逐字复制 `native_fence_json` 或 `validated_json`；`next=emit_repaired_fence` 时逐字复制 `repaired_json`。不要凭记忆重新拼写 JSON，也不要在复制后增删节点、改文案或改括号；要改内容就修改规格并重新验证。未通过校验时按诊断修正，不以渲染器可能补齐标点或括号为交付依据。
-3.5. **字段名逐个核对**：未知组件类型（包括 `Card` / `Text` 等大小写误写）以及缺失必填字段会被校验工具拒绝。正文可保留其余有效组件；无法修复时展示源码和诊断，不会假报渲染成功。`tabs[].items` 必须提供（允许显式空数组），`content` 可作为别名；`card.body` / `card.content` 会归一化为 `items` 并提示。高频误写：`callout` 正文是 `content`（不是 text/body）；`table` 要 `columns` + `rows`（只给二维 rows 时首行会当表头）；`keyvalue` 要 `pairs:[{key,value}]`；`diff` 是 `diffs`；图片/音视频是 `src`；`code` 是 `code`、`copy` 是 `text`。拿不准就调 `validate_dsh_ui`，不要凭直觉命名。
+3.5. **字段名逐个核对**：未知组件类型（包括 `Card` / `Text` 等大小写误写）以及缺失必填字段会被校验工具拒绝。正文可保留其余有效组件；无法修复时展示源码和诊断，不会假报渲染成功。`tabs[].items` 必须提供（允许显式空数组），`content` 可作为别名；`card.body` / `card.content` 会归一化为 `items` 并提示。高频误写：`callout` 正文是 `content`（不是 text/body）；`table` 要 `columns` + `rows`（只给二维 rows 时首行会当表头）；`keyvalue` 要 `pairs:[{key,value}]`；`diff` 是 `diffs`；图片/音视频是 `src`；`code`、`mermaid`、`svg` 的源码字段是 `code`，`copy` 是 `text`。拿不准就调 `validate_dsh_ui`，不要凭直觉命名。
 4. **不要嵌套围栏**：dsh-ui 里不要再包 ``` 代码围栏
 5. **深色主题友好**：配色选深底亮色；UI 主题跟随应用
 6. **场景判断**：根据组件是否能帮助读者理解或操作来决定是否使用，并遵循当前系统提示的档位；需要组件时，查阅上面的映射表选择合适的组件。
