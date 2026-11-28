@@ -70,7 +70,6 @@ import { validateCanonicalGenuiSpec } from './guard.ts'
 import { diagnoseUnknownGenuiFields } from './genui-runtime/diagnostics.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
 import { sourceFencesOfAssistant, sourceLanguageAt } from './source-fence.ts'
-import { resolveFenceByBody } from '../shared/fence-match.ts'
 import { normalizeFenceLanguage } from '../shared/fence-language.ts'
 
 /** 优先用宿主代码块内容的语义标记定位包装节点；隐藏语言或改变类名不能阻断
@@ -786,7 +785,7 @@ function createSourceLanguageResolver(ctx: Context): {
     isSessionUnavailable() {
       return sessionUnavailable
     },
-    get(block, raw) {
+    get(block) {
       if (sweepLanguages.has(block)) return sweepLanguages.get(block)
       const row = block.closest<HTMLElement>(`${ASSISTANT_FLOW_ROW}[data-chat-node-key]`)
       if (row === null || row.dataset.chatGroupPart === 'reasoning') return undefined
@@ -818,7 +817,9 @@ function createSourceLanguageResolver(ctx: Context): {
         fences = sourceFencesOfAssistant(assistantNode.data.blocks)
         parsedNodes.set(nodeKey, fences)
       }
-      const fence = resolveFenceByBody(fences, raw ?? rawOf(block), hostFenceIndexOf(row, block))
+      const index = hostFenceIndexOf(row, block)
+      if (index < 0) return undefined
+      const fence = fences[index]
       const language = fence?.lang
       if (fence !== undefined && fence.openingLineComplete) {
         stableLanguages.set(block, { sessionId: activeSessionId, nodeKey, language: fence.lang })
